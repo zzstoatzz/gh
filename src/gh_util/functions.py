@@ -37,7 +37,7 @@ async def add_labels_to_issue(
             f"/repos/{owner}/{repo}/issues/{issue_number}/labels"
         )
 
-        if labels_to_add := new_labels - {
+        if labels_to_add := set(new_labels) - {
             label["name"] for label in current_labels_response.json()
         }:
             await client.post(
