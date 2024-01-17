@@ -27,3 +27,20 @@ async def fetch_repo_labels(owner: str, repo: str) -> Set[GitHubLabel]:
         response = await client.get(f"/repos/{owner}/{repo}/labels")
         response.raise_for_status()
         return parse_as(set[GitHubLabel], response.json())
+
+
+async def add_labels_to_issue(
+    owner: str, repo: str, issue_number: int, new_labels: Set[str]
+) -> None:
+    async with GHClient() as client:
+        current_labels_response = await client.get(
+            f"/repos/{owner}/{repo}/issues/{issue_number}/labels"
+        )
+
+        if labels_to_add := new_labels - {
+            label["name"] for label in current_labels_response.json()
+        }:
+            await client.post(
+                f"/repos/{owner}/{repo}/issues/{issue_number}/labels",
+                json=list(labels_to_add),
+            )
