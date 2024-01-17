@@ -168,4 +168,4 @@ cython_debug/
 # VS Code
 .vscode/
 
-src/gh/_version.py
+src/gh_util/_version.py
