@@ -58,3 +58,4 @@ class GitHubIssueEvent(BaseModel):
 
     action: str
     issue: GitHubIssue
+    repository: GitHubRepo
