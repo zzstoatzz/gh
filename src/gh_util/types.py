@@ -10,6 +10,18 @@ class GitHubUser(BaseModel):
     url: HttpUrl
 
 
+class GitHubLabel(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: int
+    name: str
+    color: str
+    description: str | None = None
+
+    def __hash__(self) -> int:
+        return hash(self.name)
+
+
 class GitHubComment(BaseModel):
     model_config = ConfigDict(extra="allow")
 
