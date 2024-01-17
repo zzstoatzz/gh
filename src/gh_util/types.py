@@ -22,6 +22,13 @@ class GitHubLabel(BaseModel):
         return hash(self.name)
 
 
+class GitHubRepo(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    name: str
+    owner: GitHubUser
+
+
 class GitHubComment(BaseModel):
     model_config = ConfigDict(extra="allow")
 
