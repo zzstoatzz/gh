@@ -16,6 +16,7 @@ class GitHubLabel(BaseModel):
     id: int
     name: str
     color: str
+
     description: str | None = None
 
     def __hash__(self) -> int:
@@ -46,10 +47,9 @@ class GitHubIssue(BaseModel):
     url: HttpUrl
     number: int
     user: GitHubUser
-    body: str | None = None
-
     user_comments: list[GitHubComment] = Field(default_factory=list)
 
+    body: str | None = None
     comments_url: HttpUrl | None = None
 
 
@@ -59,3 +59,14 @@ class GitHubIssueEvent(BaseModel):
     action: str
     issue: GitHubIssue
     repository: GitHubRepo
+
+
+class GitHubRelease(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    tag_name: str
+    published_at: datetime
+    html_url: HttpUrl
+
+    name: str | None = None
+    body: str | None = None
