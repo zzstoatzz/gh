@@ -12,8 +12,10 @@ keywords = ["github", "api", "client", "python"]
 requires-python = ">=3.10"
 dependencies = [
     "httpx",
+    "jinja2",
     "pydantic>=2.5",
     "pydantic-settings",
+    "rich",
 ]
 
 [project.optional-dependencies]
