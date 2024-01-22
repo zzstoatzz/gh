@@ -23,7 +23,10 @@ class GHClient(httpx.AsyncClient):
         else:
             logger.warning_kv(
                 "AUTH",
-                "`GH_UTIL_TOKEN` not set in environment - watch out for rate limits!",
+                (
+                    "`GH_UTIL_TOKEN` not set in env vars or `.env` - watch out for rate limits and 401s!"
+                    " see https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token"
+                ),
                 "red",
             )
         self.headers["Accept"] = "application/vnd.github.v3+json"
@@ -37,3 +40,9 @@ class GHClient(httpx.AsyncClient):
         response = await super().request(method, url, *args, **kwargs)
         response.raise_for_status()
         return response
+
+    async def get(self, url, *args, **kwargs) -> httpx.Response:
+        return await self.request("GET", url, *args, **kwargs)
+
+    async def post(self, url, *args, **kwargs) -> httpx.Response:
+        return await self.request("POST", url, *args, **kwargs)

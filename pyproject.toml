@@ -11,6 +11,7 @@ classifiers = [
 keywords = ["github", "api", "client", "python"]
 requires-python = ">=3.10"
 dependencies = [
+    "devtools",
     "httpx",
     "jinja2",
     "pydantic>=2.5",
