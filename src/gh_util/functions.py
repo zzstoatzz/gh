@@ -4,7 +4,13 @@ from jinja2 import Template
 
 from gh_util.client import GHClient
 from gh_util.logging import get_logger
-from gh_util.types import GitHubComment, GitHubIssue, GitHubLabel, GitHubRelease
+from gh_util.types import (
+    GitHubComment,
+    GitHubIssue,
+    GitHubLabel,
+    GitHubPullRequest,
+    GitHubRelease,
+)
 from gh_util.utils import parse_as
 
 logger = get_logger(__name__)
@@ -81,3 +87,39 @@ async def describe_latest_release(
     return template.render(
         release=release, **dict(owner=owner, repo=repo, **render_kwargs)
     )
+
+
+async def open_pull_request(
+    owner: str,
+    repo: str,
+    title: str,
+    head: str,
+    base: str,
+    body: str | None = None,
+    draft: bool = False,
+    check_for_existing: bool = True,
+) -> GitHubPullRequest:
+    async with GHClient() as client:
+        if check_for_existing:
+            existing_prs = await client.get(
+                f"/repos/{owner}/{repo}/pulls?head={owner}:{head}&base={base}&state=open"
+            )
+            if existing_prs.status_code == 200 and existing_prs.json():
+                logger.warning_kv(
+                    "Existing PR found",
+                    f"PR already exists for {owner}:{head} -> {base}",
+                    "blue",
+                )
+                return GitHubPullRequest.model_validate(existing_prs.json()[0])
+
+        response = await client.post(
+            f"/repos/{owner}/{repo}/pulls",
+            json={
+                "title": title,
+                "head": head,
+                "base": base,
+                "body": body,
+                "draft": draft,
+            },
+        )
+        return GitHubPullRequest.model_validate(response.json())

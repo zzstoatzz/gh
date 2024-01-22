@@ -70,3 +70,43 @@ class GitHubRelease(BaseModel):
 
     name: str | None = None
     body: str | None = None
+
+
+class GitHubBranch(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    # Basic branch data
+    label: str
+    ref: str
+    sha: str
+
+    # User who last committed to the branch
+    user: GitHubUser
+
+    # The repository this branch is part of
+    repo: GitHubRepo
+
+
+class GitHubPullRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    # Basic pull request data
+    title: str
+    body: str | None = None
+    url: HttpUrl
+    html_url: HttpUrl
+    number: int
+    state: str
+
+    # User who created the PR
+    user: GitHubUser
+
+    # Branches and repository data
+    head: GitHubBranch
+    base: GitHubBranch
+
+    # Timestamps
+    created_at: datetime
+    updated_at: datetime
+    closed_at: datetime | None = None
+    merged_at: datetime | None = None
