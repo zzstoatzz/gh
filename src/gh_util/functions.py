@@ -1,5 +1,3 @@
-from typing import Set
-
 from jinja2 import Template
 
 from gh_util.client import GHClient
@@ -25,39 +23,52 @@ async def fetch_github_issue(
     async with GHClient() as client:
         response = await client.get(f"/repos/{owner}/{repo}/issues/{issue_number}")
         issue = GitHubIssue.model_validate(response.json())
+        logger.debug_kv("Fetched issue", f"{(issue.title or issue.number)!r}", "blue")
 
         if include_comments:
             response = await client.get(issue.comments_url)
-            issue.user_comments = parse_as(list[GitHubComment], response.json())
+            data = response.json()
+            logger.debug_kv("Comments", f"retrieved {len(data)}", "blue")
+            issue.user_comments = parse_as(list[GitHubComment], data)
 
         return issue
 
 
-async def fetch_repo_labels(owner: str, repo: str) -> Set[GitHubLabel]:
+async def fetch_repo_labels(owner: str, repo: str) -> set[GitHubLabel]:
     async with GHClient() as client:
         response = await client.get(f"/repos/{owner}/{repo}/labels")
-        response.raise_for_status()
-        return parse_as(set[GitHubLabel], response.json())
+        data = response.json()
+        label_names = {label["name"] for label in data}
+        logger.debug_kv("Fetched labels", label_names, "blue")
+        return parse_as(set[GitHubLabel], data)
 
 
 async def add_labels_to_issue(
-    owner: str, repo: str, issue_number: int, new_labels: Set[str]
+    owner: str, repo: str, issue_number: int, new_labels: list[str] | set[str]
 ) -> bool:
+    new_labels = set(new_labels)
+
     async with GHClient() as client:
         current_labels_response = await client.get(
             f"/repos/{owner}/{repo}/issues/{issue_number}/labels"
         )
+        names = {label["name"] for label in current_labels_response.json()}
+        logger.debug_kv(
+            "Fetched current labels", " | ".join(names) or "No labels", "blue"
+        )
 
-        if labels_to_add := set(new_labels) - {
-            label["name"] for label in current_labels_response.json()
-        }:
-            response = await client.post(
+        if labels_to_add := new_labels - names:
+            await client.post(
                 f"/repos/{owner}/{repo}/issues/{issue_number}/labels",
                 json=list(labels_to_add),
             )
 
-            if response.status_code == 200:
-                return True
+            logger.info_kv(
+                "Added labels",
+                f"Added labels {labels_to_add} to issue #{issue_number}",
+                "green",
+            )
+            return True
 
         else:
             logger.warning_kv(
