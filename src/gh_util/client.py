@@ -1,3 +1,5 @@
+import os
+
 import httpx
 
 import gh_util
@@ -17,9 +19,13 @@ class GHClient(httpx.AsyncClient):
                 "Using GitHub token set in environment via `GH_UTIL_TOKEN`",
                 "blue",
             )
-            self.headers[
-                "Authorization"
-            ] = f"token {gh_util.settings.token.get_secret_value()}"
+            token = gh_util.settings.token.get_secret_value()
+        elif token := os.getenv("GITHUB_TOKEN"):
+            logger.debug_kv(
+                "AUTH",
+                "Using `GITHUB_TOKEN` set in environment",
+                "blue",
+            )
         else:
             logger.warning_kv(
                 "AUTH",
@@ -29,7 +35,12 @@ class GHClient(httpx.AsyncClient):
                 ),
                 "red",
             )
-        self.headers["Accept"] = "application/vnd.github.v3+json"
+        self.headers.update(
+            {
+                "Accept": "application/vnd.github.v3+json",
+                "Authorization": f"token {token}",
+            }
+        )
 
     async def request(self, method, url, *args, **kwargs) -> httpx.Response:
         """Allow passing in a relative URL."""
