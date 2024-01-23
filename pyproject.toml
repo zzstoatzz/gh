@@ -1,7 +1,7 @@
 [project]
 name = "gh_util"
 dynamic = ["version"]
-description = "Minimal Python client for GitHub API."
+description = "Minimal LLM friendly Python client for GitHub API."
 readme = "README.md"
 license = { file = "LICENSE" }
 classifiers = [

@@ -22,7 +22,7 @@ async def fetch_github_issue(
 ) -> GitHubIssue:
     async with GHClient() as client:
         response = await client.get(f"/repos/{owner}/{repo}/issues/{issue_number}")
-        issue = GitHubIssue.model_validate(response.json())
+        issue = parse_as(GitHubIssue, response.json())
         logger.debug_kv("Fetched issue", f"{(issue.title or issue.number)!r}", "blue")
 
         if include_comments:
@@ -81,7 +81,7 @@ async def add_labels_to_issue(
 async def fetch_latest_release(owner: str, repo: str) -> GitHubRelease:
     async with GHClient() as client:
         response = await client.get(f"/repos/{owner}/{repo}/releases/latest")
-        return GitHubRelease.model_validate(response.json())
+        return parse_as(GitHubRelease, response.json())
 
 
 async def describe_latest_release(
@@ -121,7 +121,7 @@ async def open_pull_request(
                     f"PR already exists for {owner}:{head} -> {base}",
                     "blue",
                 )
-                return GitHubPullRequest.model_validate(existing_prs.json()[0])
+                return parse_as(GitHubPullRequest, existing_prs.json()[0])
 
         response = await client.post(
             f"/repos/{owner}/{repo}/pulls",
@@ -133,4 +133,4 @@ async def open_pull_request(
                 "draft": draft,
             },
         )
-        return GitHubPullRequest.model_validate(response.json())
+        return parse_as(GitHubPullRequest, response.json())
