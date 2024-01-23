@@ -13,19 +13,14 @@ class GHClient(httpx.AsyncClient):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._set_authentication()
+
+    def _set_authentication(self):
         if gh_util.settings.token:
-            logger.debug_kv(
-                "AUTH",
-                "Using GitHub token set in environment via `GH_UTIL_TOKEN`",
-                "blue",
-            )
             token = gh_util.settings.token.get_secret_value()
+            logger.info_kv("AUTH", "Using token from settings `GH_UTIL_TOKEN`", "green")
         elif token := os.getenv("GITHUB_TOKEN"):
-            logger.debug_kv(
-                "AUTH",
-                "Using `GITHUB_TOKEN` set in environment",
-                "blue",
-            )
+            logger.info_kv("AUTH", "Using token from env vars `GITHUB_TOKEN`", "green")
         else:
             logger.warning_kv(
                 "AUTH",
@@ -35,15 +30,18 @@ class GHClient(httpx.AsyncClient):
                 ),
                 "red",
             )
-        self.headers.update(
-            {
-                "Accept": "application/vnd.github.v3+json",
-                "Authorization": f"token {token}",
-            }
-        )
+            token = None
+
+        if token:
+            self.headers.update(
+                {
+                    "Accept": "application/vnd.github.v3+json",
+                    "Authorization": f"token {token}",
+                }
+            )
 
     async def request(self, method, url, *args, **kwargs) -> httpx.Response:
-        """Allow passing in a relative URL."""
+        """Allow passing a path relative to `GH_UTIL_BASE_URL`."""
         url = str(url)
         if url.startswith("/"):
             url = f"{gh_util.settings.base_url}{url}"
@@ -51,9 +49,3 @@ class GHClient(httpx.AsyncClient):
         response = await super().request(method, url, *args, **kwargs)
         response.raise_for_status()
         return response
-
-    async def get(self, url, *args, **kwargs) -> httpx.Response:
-        return await self.request("GET", url, *args, **kwargs)
-
-    async def post(self, url, *args, **kwargs) -> httpx.Response:
-        return await self.request("POST", url, *args, **kwargs)

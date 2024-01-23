@@ -35,9 +35,9 @@ def parse_as(
     """
     adapter = TypeAdapter(type_)
 
+    parser: Callable[[Any], T] = getattr(adapter, f"validate_{mode}")
+
     if get_origin(type_) is list and isinstance(data, dict):
         data = next(iter(data.values()))
-
-    parser: Callable[[Any], T] = getattr(adapter, f"validate_{mode}")
 
     return parser(data)
