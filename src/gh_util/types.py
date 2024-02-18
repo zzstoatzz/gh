@@ -47,6 +47,7 @@ class GitHubIssue(GitHubResourceModel):
     number: int
     user: GitHubUser
     user_comments: list[GitHubComment] = Field(default_factory=list)
+    labels: list[GitHubLabel] = Field(default_factory=list)
 
     body: str | None = None
     comments_url: HttpUrl | None = None
@@ -88,6 +89,7 @@ class GitHubPullRequest(GitHubResourceModel):
     html_url: HttpUrl
     number: int
     state: str
+    labels: list[GitHubLabel] = Field(default_factory=list)
 
     # User who created the PR
     user: GitHubUser
