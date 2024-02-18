@@ -3,6 +3,13 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 
+class GitHubResourceModel(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
 class GitHubUser(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -23,26 +30,18 @@ class GitHubLabel(BaseModel):
         return hash(self.name)
 
 
-class GitHubRepo(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
+class GitHubRepo(GitHubResourceModel):
     name: str
     owner: GitHubUser
 
 
-class GitHubComment(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
+class GitHubComment(GitHubResourceModel):
     url: HttpUrl
     user: GitHubUser
     body: str
-    created_at: datetime
-    updated_at: datetime
 
 
-class GitHubIssue(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
+class GitHubIssue(GitHubResourceModel):
     title: str
     url: HttpUrl
     number: int
@@ -53,17 +52,13 @@ class GitHubIssue(BaseModel):
     comments_url: HttpUrl | None = None
 
 
-class GitHubIssueEvent(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
+class GitHubIssueEvent(GitHubResourceModel):
     action: str
     issue: GitHubIssue
     repository: GitHubRepo
 
 
-class GitHubRelease(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
+class GitHubRelease(GitHubResourceModel):
     tag_name: str
     published_at: datetime
     html_url: HttpUrl
@@ -72,9 +67,7 @@ class GitHubRelease(BaseModel):
     body: str | None = None
 
 
-class GitHubBranch(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
+class GitHubBranch(GitHubResourceModel):
     # Basic branch data
     label: str
     ref: str
@@ -87,9 +80,7 @@ class GitHubBranch(BaseModel):
     repo: GitHubRepo
 
 
-class GitHubPullRequest(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
+class GitHubPullRequest(GitHubResourceModel):
     # Basic pull request data
     title: str
     body: str | None = None
@@ -106,7 +97,5 @@ class GitHubPullRequest(BaseModel):
     base: GitHubBranch
 
     # Timestamps
-    created_at: datetime
-    updated_at: datetime
     closed_at: datetime | None = None
     merged_at: datetime | None = None
