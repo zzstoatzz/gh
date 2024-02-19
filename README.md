@@ -107,6 +107,6 @@ if __name__ == "__main__":
 <details>
 <summary>Output</summary>
 
-<video src="docs/assets/videos/gh-util-read-issue-demo.mov" controls="controls" width="100%" height="100%"></video>
+![read issue demo](docs/assets/gifs/gh-util-demo-read-issue.gif)
 
 </details>
