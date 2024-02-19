@@ -1,6 +1,7 @@
 import os
 
 import httpx
+from devtools import debug
 
 import gh_util
 from gh_util.logging import get_logger
@@ -46,6 +47,39 @@ class GHClient(httpx.AsyncClient):
         if url.startswith("/"):
             url = f"{gh_util.settings.base_url}{url}"
 
-        response = await super().request(method, url, *args, **kwargs)
-        response.raise_for_status()
+        try:
+            response = await super().request(method, url, *args, **kwargs)
+            response.raise_for_status()
+
+        except httpx.HTTPStatusError as e:
+            logger.error_kv("HTTPStatusError", debug(e.response.json()), "red")
+
+            match e.response.status_code:
+                case 401:
+                    logger.error_kv(
+                        "Unauthorized",
+                        "Check your token is valid and has the required permissions",
+                    )
+                case 403:
+                    logger.error_kv(
+                        "Forbidden",
+                        "Check your token has the required permissions",
+                    )
+                case 404:
+                    logger.error_kv(
+                        "Not Found",
+                        "Check the URL is correct and the resource exists",
+                    )
+                case 422:
+                    logger.error_kv(
+                        "Unprocessable Entity",
+                        "Check the request body is correct",
+                    )
+                case _:
+                    logger.error_kv(
+                        "Unhandled HTTPStatusError",
+                        "Please report this as a bug",
+                    )
+            raise
+
         return response

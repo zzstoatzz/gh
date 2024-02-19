@@ -18,7 +18,11 @@ class Settings(BaseSettings):
 
     base_url: str = "https://api.github.com"
 
+    default_base: str = "main"
+
     log_level: LogLevel = "INFO"
+
+    test_mode: bool = False
 
     @field_validator("log_level", mode="after")
     @classmethod

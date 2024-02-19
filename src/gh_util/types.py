@@ -10,9 +10,7 @@ class GitHubResourceModel(BaseModel):
     updated_at: datetime | None = None
 
 
-class GitHubUser(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
+class GitHubUser(GitHubResourceModel):
     login: str
     url: HttpUrl
 
@@ -33,6 +31,7 @@ class GitHubLabel(BaseModel):
 class GitHubRepo(GitHubResourceModel):
     name: str
     owner: GitHubUser
+    description: str | None = None
 
 
 class GitHubComment(GitHubResourceModel):
@@ -63,6 +62,7 @@ class GitHubRelease(GitHubResourceModel):
     tag_name: str
     published_at: datetime
     html_url: HttpUrl
+    author: GitHubUser
 
     name: str | None = None
     body: str | None = None

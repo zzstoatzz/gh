@@ -1,5 +1,6 @@
-from jinja2 import Template
+from typing import Any, Literal
 
+import gh_util
 from gh_util.client import GHClient
 from gh_util.logging import get_logger
 from gh_util.types import (
@@ -14,12 +15,43 @@ from gh_util.utils import parse_as
 logger = get_logger(__name__)
 
 
-async def fetch_github_issue(
+async def fetch_repo_issue(
     owner: str,
     repo: str,
     issue_number: int,
     include_comments: bool = False,
 ) -> GitHubIssue:
+    """Fetch an issue or pull request from a repository.
+
+    Args:
+        owner: The owner of the repository.
+        repo: The repository name.
+        issue_number: The issue or pull request number.
+        include_comments: Whether to include comments for the issue. Default is False.
+
+    Returns:
+        GitHubIssue: The issue or pull request.
+
+    Example:
+        Fetch an issue from the `prefecthq/marvin` repository:
+        ```python
+        from gh_util.functions import fetch_repo_issue
+        from gh_util.print import print_repo_issue
+
+        async def fetch_issue():
+            issue = await fetch_repo_issue(
+                owner="prefecthq",
+                repo="marvin",
+                issue_number=723,
+                include_comments=True
+            )
+            print_repo_issue(issue)
+
+        if __name__ == "__main__":
+            import asyncio
+            asyncio.run(fetch_issue())
+        ```
+    """
     async with GHClient() as client:
         response = await client.get(f"/repos/{owner}/{repo}/issues/{issue_number}")
         issue = parse_as(GitHubIssue, response.json())
@@ -34,7 +66,118 @@ async def fetch_github_issue(
         return issue
 
 
+async def fetch_repo_issues(
+    owner: str,
+    repo: str,
+    state: str = "open",
+    n: int = 10,
+    per_page: int = 100,
+    include_comments: bool = False,
+    fetch_type: Literal["issues", "pulls", "all"] = "all",
+) -> list[GitHubIssue]:
+    """Fetch issues and pull requests from a repository.
+
+    Args:
+        owner: The owner of the repository.
+        repo: The repository name.
+        state: The state of the issues to fetch. Default is "open".
+        n: The number of issues to fetch. Default is 10.
+        per_page: The number of issues to fetch per page. Default is 100.
+        include_comments: Whether to include comments for each issue. Default is False.
+        fetch_type: The type of items to fetch, e.g. "issues", "pulls", or "all". Default is "all".
+
+    Returns:
+        list[GitHubIssue]: A list of issues and pull requests.
+
+    Example:
+        Get the last 10 pull requests from a repository:
+        ```python
+        from gh_util.functions import fetch_repo_issues
+
+        async def fetch_issues():
+            issues = await fetch_repo_issues(
+                owner="prefecthq",
+                repo="marvin",
+                n=10,
+                include_comments=True,
+                fetch_type="pulls"
+            )
+            for issue in issues:
+                print_repo_issue(issue)
+
+        if __name__ == "__main__":
+            import asyncio
+            asyncio.run(fetch_issues())
+        ```
+    """
+    page = 1
+    issues: list[dict[str, Any]] = []
+    async with GHClient() as client:
+        while len(issues) < n:
+            response = await client.get(
+                f"/repos/{owner}/{repo}/issues",
+                params={
+                    "state": state,
+                    "per_page": min(n - len(issues), per_page),
+                    "page": page,
+                },
+            )
+            if not (new_items := response.json()):
+                break
+
+            for item in new_items:
+                is_pull_request = item.get("pull_request") is not None
+
+                if fetch_type != "all" and (
+                    fetch_type == "issues"
+                    and is_pull_request
+                    or fetch_type == "pulls"
+                    and not is_pull_request
+                ):
+                    logger.debug_kv(
+                        "Skipped item",
+                        f"Skipping {item.get('title')!r} as not of {fetch_type=!r}",
+                        "blue",
+                    )
+                    continue
+
+                if include_comments:
+                    comments_response = await client.get(item.get("comments_url"))
+                    item["user_comments"] = (
+                        comments_response.json() if comments_response else []
+                    )
+
+                issues.append(item)
+                if len(issues) == n:
+                    break
+
+            page += 1
+            if fetch_type != "all" and len(new_items) == 0:
+                break
+
+        return parse_as(list[GitHubIssue], issues)
+
+
 async def fetch_repo_labels(owner: str, repo: str) -> set[GitHubLabel]:
+    """Fetch the labels from a repository.
+
+    Args:
+        owner: The owner of the repository.
+        repo: The repository name.
+
+    Returns:
+        set[GitHubLabel]: A set of labels.
+
+    Example:
+        Get the labels from the `prefecthq/marvin` repository:
+        ```python
+        from gh_util.functions import fetch_repo_labels
+
+        if __name__ == "__main__":
+            import asyncio
+            asyncio.run(fetch_repo_labels(owner="zzstoatzz", repo="gh")
+        ```
+    """
     async with GHClient() as client:
         response = await client.get(f"/repos/{owner}/{repo}/labels")
         data = response.json()
@@ -46,6 +189,34 @@ async def fetch_repo_labels(owner: str, repo: str) -> set[GitHubLabel]:
 async def add_labels_to_issue(
     owner: str, repo: str, issue_number: int, new_labels: list[str] | set[str]
 ) -> bool:
+    """Add labels to an issue or pull request. If the label already exists on the issue, it will not be added again.
+
+    Args:
+        owner: The owner of the repository.
+        repo: The repository name.
+        issue_number: The issue or pull request number.
+        new_labels: The labels to add to the issue.
+
+    Returns:
+        bool: True if any labels were added, False if no labels were added.
+
+    Example:
+        ```python
+        from gh_util.functions import add_labels_to_issue
+
+        async def label_issue():
+            await add_labels_to_issue(
+                owner="zzstoatzz",
+                repo="gh",
+                issue_number=1,
+                new_labels={"bug"}
+            )
+
+        if __name__ == "__main__":
+            import asyncio
+            asyncio.run(label_issue())
+        ```
+    """
     new_labels = set(new_labels)
 
     async with GHClient() as client:
@@ -79,37 +250,61 @@ async def add_labels_to_issue(
 
 
 async def fetch_latest_release(owner: str, repo: str) -> GitHubRelease:
+    """Fetch the latest release from a repository.
+
+    Args:
+        owner: The owner of the repository.
+        repo: The repository name.
+
+    Returns:
+        GitHubRelease: The latest release.
+
+    Example:
+        Get the latest release from the `prefecthq/marvin` repository:
+        ```python
+        from gh_util.functions import fetch_latest_release
+
+        if __name__ == "__main__":
+            import asyncio
+            asyncio.run(fetch_latest_release(owner="prefecthq", repo="marvin"))
+        ``
+    """
     async with GHClient() as client:
         response = await client.get(f"/repos/{owner}/{repo}/releases/latest")
         return parse_as(GitHubRelease, response.json())
 
 
-async def describe_latest_release(
-    owner: str, repo: str, template: Template | str | None = None, **render_kwargs
-) -> str:
-    release = await fetch_latest_release(owner, repo)
-    if template is None:
-        template = Template(
-            "Latest release: {{ release.tag_name }} @ {{ release.html_url }}"
-        )
-    elif isinstance(template, str):
-        template = Template(template)
-
-    return template.render(
-        release=release, **dict(owner=owner, repo=repo, **render_kwargs)
-    )
-
-
 async def open_pull_request(
     owner: str,
     repo: str,
-    title: str,
     head: str,
-    base: str,
+    title: str = "👾 stop the lizard people 👾",  # had to do it to em
+    base: str = gh_util.settings.default_base,
     body: str | None = None,
     draft: bool = False,
     check_for_existing: bool = True,
 ) -> GitHubPullRequest:
+    """Open a pull request from a branch to a base.
+
+    Args:
+        owner: The owner of the repository.
+        repo: The repository name.
+        head: The branch to pull from.
+        title: The title of the pull request. Default is "👾 stop the lizard people 👾".
+        base: The branch to pull into. Default is "main".
+        body: The body of the pull request. Default is None.
+        draft: Whether the pull request is a draft. Default is False.
+        check_for_existing: Whether to check for an existing pull request. Default is True.
+
+    Returns:
+        GitHubPullRequest: The pull request.
+    """
+    if not body:
+        body = (
+            f"Pull request from {head} to {base}"
+            f" This PR was created by the gh_util library."
+        )
+
     async with GHClient() as client:
         if check_for_existing:
             existing_prs = await client.get(

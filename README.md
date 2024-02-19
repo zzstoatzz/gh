@@ -89,10 +89,10 @@ if __name__ == "__main__":
 
 ### Read a GitHub issue and its comments
 ```python
-from gh_util.functions import fetch_github_issue
+from gh_util.functions import fetch_repo_issue
 
 async def read_github_issue() -> None:
-    issue = await fetch_github_issue("prefecthq", "marvin", 723, include_comments=True)
+    issue = await fetch_repo_issue("prefecthq", "marvin", 723, include_comments=True)
     print(f"[{issue.number} {issue.title}]({issue.url})")
     print(issue.body)
 
