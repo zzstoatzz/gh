@@ -1,0 +1,25 @@
+from gh_util.functions import fetch_repo_issues
+
+
+async def main():
+    issues = await fetch_repo_issues("prefecthq", "marvin", n=5, include_comments=True)
+
+    for issue in issues:
+        print(
+            f"[{issue.number} {issue.title}]({issue.url}) was created by {issue.user.login} on {issue.created_at}."
+        )
+
+        print(issue.body)
+
+        print()
+
+        for comment in issue.user_comments:
+            print(f"[{comment.user.login}]({comment.user.url}) said:")
+            print(comment.body)
+            print()
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    asyncio.run(main())

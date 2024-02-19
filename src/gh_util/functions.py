@@ -1,5 +1,6 @@
 from jinja2 import Template
 
+import gh_util
 from gh_util.client import GHClient
 from gh_util.logging import get_logger
 from gh_util.types import (
@@ -14,7 +15,7 @@ from gh_util.utils import parse_as
 logger = get_logger(__name__)
 
 
-async def fetch_github_issue(
+async def fetch_repo_issue(
     owner: str,
     repo: str,
     issue_number: int,
@@ -32,6 +33,46 @@ async def fetch_github_issue(
             issue.user_comments = parse_as(list[GitHubComment], data)
 
         return issue
+
+
+async def fetch_repo_issues(
+    owner: str,
+    repo: str,
+    state: str = "open",
+    n: int = 10,
+    per_page: int = 100,
+    include_comments: bool = False,
+) -> list[GitHubIssue]:
+    page = 1
+    issues: list[GitHubIssue] = []
+    async with GHClient() as client:
+        while len(issues) < n:
+            response = await client.get(
+                f"/repos/{owner}/{repo}/issues",
+                params={
+                    "state": state,
+                    "per_page": min(n - len(issues), per_page),
+                    "page": page,
+                    "include": "comments",
+                },
+            )
+            if not (new_issues := response.json()):
+                break
+            issues.extend(
+                [
+                    issue
+                    | {
+                        "user_comments": await parse_as(
+                            list[GitHubComment], client.get(issue.comments_url).json()
+                        )
+                    }
+                    if include_comments
+                    else {}
+                    for issue in new_issues
+                ]
+            )
+            page += 1
+        return issues
 
 
 async def fetch_repo_labels(owner: str, repo: str) -> set[GitHubLabel]:
@@ -103,13 +144,23 @@ async def describe_latest_release(
 async def open_pull_request(
     owner: str,
     repo: str,
-    title: str,
     head: str,
-    base: str,
+    title: str = "👾 stop the lizard people 👾",  # had to do it to em
+    base: str = gh_util.settings.default_base,
     body: str | None = None,
+    labels: list[str] | set[str] | None = None,
     draft: bool = False,
     check_for_existing: bool = True,
 ) -> GitHubPullRequest:
+    if not body:
+        body = (
+            f"Pull request from {head} to {base}"
+            f" This PR was created by the gh_util library."
+        )
+
+    if not labels:
+        labels = {"gh-util-automated", "DO NOT MERGE"}
+
     async with GHClient() as client:
         if check_for_existing:
             existing_prs = await client.get(
@@ -131,6 +182,7 @@ async def open_pull_request(
                 "base": base,
                 "body": body,
                 "draft": draft,
+                "labels": list(labels) if labels else None,
             },
         )
         return parse_as(GitHubPullRequest, response.json())
