@@ -104,9 +104,9 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-<!-- <details>
-<summary>Output</summary> -->
+<details>
+<summary>Output</summary>
 
-<video src="docs/assets/videos/gh-util-demo-read-issue.mov" controls="controls" width="100%" height="100%"></video>
+<video src="docs/assets/videos/gh-util-read-issue-demo.mov" controls="controls" width="100%" height="100%"></video>
 
-<!-- </details> -->
+</details>
