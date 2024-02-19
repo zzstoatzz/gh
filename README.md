@@ -90,106 +90,23 @@ if __name__ == "__main__":
 ### Read a GitHub issue and its comments
 ```python
 from gh_util.functions import fetch_repo_issue
+from gh_util.print import print_repo_issue
 
-async def read_github_issue() -> None:
+
+async def main():
     issue = await fetch_repo_issue("prefecthq", "marvin", 723, include_comments=True)
-    print(f"[{issue.number} {issue.title}]({issue.url})")
-    print(issue.body)
+    print_repo_issue(issue)
 
-    for comment in issue.user_comments:
-        print(f"[{comment.user.login}]({comment.user.url}) said:")
-        print(f"{comment.body}")
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(read_github_issue())
+
+    asyncio.run(main())
 ```
 
 <details>
 <summary>Output</summary>
-# [723 Dependency error with `openai`](https://api.github.com/repos/PrefectHQ/marvin/issues/723)
 
-### First check
+![example output](docs/assets/videos/gh-util-demo-read-issue.mov)
 
-- [X] I added a descriptive title to this issue.
-- [X] I used the GitHub search to try to find a similar issue and didn't find one.
-- [X] I searched the Marvin documentation for this issue.
-
-### Bug summary
-
-I am getting the error ```bash ImportError: cannot import name 'OpenAI' from 'openai' ``` when trying to run a simple marvin ai function.
-
-When tried to fix this using `pip install openai --upgrade` I get the error:
-` ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
-marvin 1.5.6 requires openai<1.0.0,>=0.27.8, but you have openai 1.6.1 which is incompatible.
-`
-
-### Reproduction
-
-```python3
-My code:
-
-from marvin import ai_model
-from pydantic import BaseModel, Field
-from openai import OpenAI
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY))
-
-
-class Location(BaseModel):
-    city: str
-    state_abbreviation: str = Field(
-        ..., description="The two-letter state abbreviation"
-    )
-
-
-ai_model(Location, client=client)("The Big Apple")
-
-
-
-When running this using `python marvin_scirpt.py` I am getting the mentioned error.
-```
-
-
-### Error
-
-_No response_
-
-### Versions
-
-```Text
-Version:		1.5.6
-Python version:		3.11.4
-OS/Arch:		darwin/arm64
-```
-
-
-### Additional context
-
-_No response_
-[zzstoatzz](https://api.github.com/users/zzstoatzz) said:
-hi @cyai - this is our fault since our docs suggest 1.5.6 has 2.x syntax
-
-please install from main instead (for now)
-```
-pip install git+https://github.com/PrefectHQ/marvin.git
-```
-[zzstoatzz](https://api.github.com/users/zzstoatzz) said:
-hi @cyai - we've released marvin 2.1, so `pip install -U marvin` to upgrade and the docs should now be in line with that version :)
-```
-
-... and more at [gh_util/functions.py](src/gh_util/functions.py)
-
-## Development
-
-```bash
-git clone https://github.com/zzstoatzz/gh.git
-cd gh
-python -m venv gh_util
-source gh_util/bin/activate
-pip install -e .
-```
+</details>
