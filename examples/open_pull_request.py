@@ -1,6 +1,7 @@
 import asyncio
 
 from gh_util.functions import open_pull_request
+from gh_util.print import print_repo_issue
 
 
 async def main():
@@ -12,6 +13,7 @@ async def main():
         draft=True,
         check_for_existing=True,
     )
+    print_repo_issue(pr)
     print(f"Pull Request URL: {pr.html_url}")
 
 
