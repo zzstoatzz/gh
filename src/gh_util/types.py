@@ -98,3 +98,12 @@ class GitHubPullRequest(GitHubResourceModel):
     # Timestamps
     closed_at: datetime | None = None
     merged_at: datetime | None = None
+
+
+class GitHubWebhookEvent(GitHubResourceModel):
+    action: str
+
+    issue: GitHubIssue | None = None
+    comment: GitHubComment | None = None
+    repository: GitHubRepo | None = None
+    sender: GitHubUser | None = None
