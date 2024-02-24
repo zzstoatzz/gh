@@ -249,6 +249,51 @@ async def add_labels_to_issue(
     return False
 
 
+async def update_labels_on_issue(
+    owner: str, repo: str, issue_number: int, labels: set[str]
+) -> bool:
+    """Put a set of labels on an issue or pull request. If labels exist on the issue but are no longer relevant, they will be removed.
+
+    Args:
+        owner: The owner of the repository.
+        repo: The repository name.
+        issue_number: The issue or pull request number.
+        labels: The labels to add to the issue.
+
+    Returns:
+        bool: True if any labels were added, False if no labels were added.
+
+    Example:
+        ```python
+        from gh_util.functions import update_labels_on_issue
+
+        async def label_issue():
+            await update_labels_on_issue(
+                owner="zzstoatzz",
+                repo="gh",
+                issue_number=1,
+                labels={"bug", "enhancement"}
+            )
+
+        if __name__ == "__main__":
+            import asyncio
+            asyncio.run(label_issue())
+        ```
+    """
+    current_labels = (await fetch_repo_issue(owner, repo, issue_number)).labels
+
+    async with GHClient() as client:
+        # Remove labels that are no longer relevant
+        for label in current_labels:
+            if label.name not in labels:
+                await client.delete(
+                    f"/repos/{owner}/{repo}/issues/{issue_number}/labels/{label.name}"
+                )
+
+        await add_labels_to_issue(owner, repo, issue_number, labels)
+        return True
+
+
 async def fetch_latest_release(owner: str, repo: str) -> GitHubRelease:
     """Fetch the latest release from a repository.
 

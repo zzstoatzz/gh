@@ -1,27 +1,89 @@
+"""Label issues based on incoming webhook events from GitHub.
+
+Uses `marvin` to prompt an LLM to label issues and return structured output.
+
+Uses `prefect` to deploy/serve the webhook event handler (Prefect Cloud required for webhook events).
+
+Setup:
+    ```bash
+    pip install gh-util marvin prefect
+    
+    export GITHUB_TOKEN=<your-github-token>
+    export OPENAI_API_KEY=<your-openai-api-key>
+    ```
+"""
+from enum import Enum
 from urllib.parse import unquote
 
-from devtools import debug
-from gh_util.types import GitHubIssueEvent
-from prefect import flow
+import marvin
+from gh_util.functions import (
+    fetch_repo_issue,
+    fetch_repo_labels,
+    update_labels_on_issue,
+)
+from gh_util.types import GitHubIssue, GitHubIssueEvent, GitHubLabel
+from prefect import flow, task
 from prefect.events.schemas import DeploymentTrigger
 
 
-# pip install prefect
-@flow
-def on_issue_event(webhook_event_str: str):
-    webhook_event = GitHubIssueEvent.model_validate_json(
-        unquote(webhook_event_str).replace("payload=", "")
+@task
+async def get_appropriate_labels(
+    issue: GitHubIssue, label_options: set[GitHubLabel]
+) -> set[str]:
+    """Return appropriate labels for a GitHub issue based on its body, comments, and existing labels."""
+
+    LabelOption = Enum(
+        "LabelOption",
+        {label.name: label.name for label in label_options},
     )
-    debug(webhook_event)
+
+    @marvin.fn
+    async def get_labels(issue: GitHubIssue) -> set[LabelOption]:  # type: ignore
+        """Return appropriate labels for a GitHub issue based on its body.
+
+        If existing labels are sufficient, return them. If existing labels are no
+        longer irrelevant, do _not_ return them.
+        """
+
+    return {i.value for i in await get_labels(issue)}
+
+
+@flow(log_prints=True)
+async def label_issues(event_body_json: str):
+    """Label issues based on incoming webhook events from GitHub."""
+    event = GitHubIssueEvent.model_validate_json(
+        unquote(event_body_json).replace("payload=", "")
+    )
+
+    print(f"Issue '#{event.issue.number} - {event.issue.title}' was {event.action}")
+
+    owner, repo = event.repository.owner.login, event.repository.name
+
+    issue = await task(fetch_repo_issue)(
+        owner, repo, event.issue.number, include_comments=True
+    )
+
+    label_options = await task(fetch_repo_labels)(owner, repo)
+
+    labels = await get_appropriate_labels(issue=issue, label_options=label_options)
+
+    await task(update_labels_on_issue)(
+        owner=owner,
+        repo=repo,
+        issue_number=issue.number,
+        labels=labels,
+    )
+
+    print(f"Labeled issue with {' | '.join(labels)!r}")
 
 
 if __name__ == "__main__":
-    on_issue_event.serve(
-        name="Handle GitHub webhook",
+    label_issues.serve(
+        name="Label GitHub Issues",
         triggers=[
             DeploymentTrigger(
                 expect={"gh.issue*"},
-                parameters={"webhook_event_str": "{{ event.payload.body }}"},
+                parameters={"event_body_json": "{{ event.payload.body }}"},
             )
         ],
     )
