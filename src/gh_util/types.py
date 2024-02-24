@@ -49,12 +49,6 @@ class GitHubIssue(GitHubResourceModel):
     comments_url: HttpUrl | None = None
 
 
-class GitHubIssueEvent(GitHubResourceModel):
-    action: str
-    issue: GitHubIssue
-    repository: GitHubRepo
-
-
 class GitHubRelease(GitHubResourceModel):
     tag_name: str
     published_at: datetime
@@ -103,7 +97,10 @@ class GitHubPullRequest(GitHubResourceModel):
 class GitHubWebhookEvent(GitHubResourceModel):
     action: str
 
-    issue: GitHubIssue | None = None
-    comment: GitHubComment | None = None
     repository: GitHubRepo | None = None
     sender: GitHubUser | None = None
+
+
+class GitHubIssueEvent(GitHubWebhookEvent):
+    issue: GitHubIssue
+    comment: GitHubComment | None = None
