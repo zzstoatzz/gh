@@ -1,3 +1,5 @@
+import asyncio
+import subprocess
 from typing import Any, Literal
 
 import gh_util
@@ -374,3 +376,27 @@ async def open_pull_request(
             },
         )
         return parse_as(GitHubPullRequest, response.json())
+
+
+async def run_git_command(*args, repo_path=None):
+    """Run a git command asynchronously in a given repository path."""
+    process = await asyncio.create_subprocess_exec(
+        "git", *args, cwd=repo_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    stdout, stderr = await process.communicate()
+    if process.returncode != 0:
+        error_msg = stderr.decode().strip()
+        raise Exception(f"Git command error: {error_msg}")
+    return stdout.decode().strip()
+
+
+async def clone_repo_to_tmpdir(owner: str, repo: str, tmpdir_path: str):
+    """Clone a repository to the provided directory path.
+
+    Args:
+        owner: The owner of the repository.
+        repo: The repository name.
+        tmpdir_path: The path to the directory where the repo will be cloned.
+    """
+    repo_url = f"git@github.com:{owner}/{repo}.git"
+    await run_git_command("clone", repo_url, tmpdir_path)
