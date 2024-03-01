@@ -1,4 +1,6 @@
+from datetime import datetime, timedelta
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -19,6 +21,7 @@ class Settings(BaseSettings):
     base_url: str = "https://api.github.com"
 
     default_base: str = "main"
+    default_since: datetime = datetime.now(ZoneInfo("UTC")) - timedelta(days=1)
 
     log_level: LogLevel = "INFO"
 

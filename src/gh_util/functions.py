@@ -1,16 +1,20 @@
 import asyncio
 import subprocess
-from typing import Any, Literal
+from datetime import datetime
+from typing import Any, Literal, Mapping
 
 import gh_util
 from gh_util.client import GHClient
 from gh_util.logging import get_logger
 from gh_util.types import (
     GitHubComment,
+    GitHubCommit,
+    GitHubEvent,
     GitHubIssue,
     GitHubLabel,
     GitHubPullRequest,
     GitHubRelease,
+    GitHubUser,
 )
 from gh_util.utils import parse_as
 
@@ -40,18 +44,14 @@ async def fetch_repo_issue(
         from gh_util.functions import fetch_repo_issue
         from gh_util.print import print_repo_issue
 
-        async def fetch_issue():
-            issue = await fetch_repo_issue(
-                owner="prefecthq",
-                repo="marvin",
-                issue_number=723,
-                include_comments=True
-            )
-            print_repo_issue(issue)
+        issue = await fetch_repo_issue(
+            owner="prefecthq",
+            repo="marvin",
+            issue_number=723,
+            include_comments=True
+        )
+        print_repo_issue(issue)
 
-        if __name__ == "__main__":
-            import asyncio
-            asyncio.run(fetch_issue())
         ```
     """
     async with GHClient() as client:
@@ -96,20 +96,15 @@ async def fetch_repo_issues(
         ```python
         from gh_util.functions import fetch_repo_issues
 
-        async def fetch_issues():
-            issues = await fetch_repo_issues(
-                owner="prefecthq",
-                repo="marvin",
-                n=10,
-                include_comments=True,
-                fetch_type="pulls"
-            )
-            for issue in issues:
-                print_repo_issue(issue)
-
-        if __name__ == "__main__":
-            import asyncio
-            asyncio.run(fetch_issues())
+        issues = await fetch_repo_issues(
+            owner="prefecthq",
+            repo="marvin",
+            n=10,
+            include_comments=True,
+            fetch_type="pulls"
+        )
+        for issue in issues:
+            print_repo_issue(issue)
         ```
     """
     page = 1
@@ -175,9 +170,7 @@ async def fetch_repo_labels(owner: str, repo: str) -> set[GitHubLabel]:
         ```python
         from gh_util.functions import fetch_repo_labels
 
-        if __name__ == "__main__":
-            import asyncio
-            asyncio.run(fetch_repo_labels(owner="zzstoatzz", repo="gh")
+        fetch_repo_labels(owner="zzstoatzz", repo="gh")
         ```
     """
     async with GHClient() as client:
@@ -206,17 +199,12 @@ async def add_labels_to_issue(
         ```python
         from gh_util.functions import add_labels_to_issue
 
-        async def label_issue():
-            await add_labels_to_issue(
-                owner="zzstoatzz",
-                repo="gh",
-                issue_number=1,
-                new_labels={"bug"}
-            )
-
-        if __name__ == "__main__":
-            import asyncio
-            asyncio.run(label_issue())
+        await add_labels_to_issue(
+            owner="zzstoatzz",
+            repo="gh",
+            issue_number=1,
+            new_labels={"bug"}
+        )
         ```
     """
     new_labels = set(new_labels)
@@ -269,17 +257,12 @@ async def update_labels_on_issue(
         ```python
         from gh_util.functions import update_labels_on_issue
 
-        async def label_issue():
-            await update_labels_on_issue(
-                owner="zzstoatzz",
-                repo="gh",
-                issue_number=1,
-                labels={"bug", "enhancement"}
-            )
-
-        if __name__ == "__main__":
-            import asyncio
-            asyncio.run(label_issue())
+        await update_labels_on_issue(
+            owner="zzstoatzz",
+            repo="gh",
+            issue_number=1,
+            labels={"bug", "enhancement"}
+        )
         ```
     """
     current_labels = (await fetch_repo_issue(owner, repo, issue_number)).labels
@@ -311,14 +294,12 @@ async def fetch_latest_release(owner: str, repo: str) -> GitHubRelease:
         ```python
         from gh_util.functions import fetch_latest_release
 
-        if __name__ == "__main__":
-            import asyncio
-            asyncio.run(fetch_latest_release(owner="prefecthq", repo="marvin"))
+        fetch_latest_release(owner="prefecthq", repo="marvin")
         ``
     """
     async with GHClient() as client:
         response = await client.get(f"/repos/{owner}/{repo}/releases/latest")
-        return parse_as(GitHubRelease, response.json())
+        return GitHubRelease.model_validate(response.json())
 
 
 async def open_pull_request(
@@ -363,7 +344,7 @@ async def open_pull_request(
                     f"PR already exists for {owner}:{head} -> {base}",
                     "blue",
                 )
-                return parse_as(GitHubPullRequest, existing_prs.json()[0])
+                return GitHubPullRequest.model_validate(existing_prs.json()[0])
 
         response = await client.post(
             f"/repos/{owner}/{repo}/pulls",
@@ -375,7 +356,7 @@ async def open_pull_request(
                 "draft": draft,
             },
         )
-        return parse_as(GitHubPullRequest, response.json())
+        return GitHubPullRequest.model_validate(response.json())
 
 
 async def run_git_command(*args, repo_path=None):
@@ -400,3 +381,51 @@ async def clone_repo_to_tmpdir(owner: str, repo: str, tmpdir_path: str):
     """
     repo_url = f"git@github.com:{owner}/{repo}.git"
     await run_git_command("clone", repo_url, tmpdir_path)
+
+
+async def fetch_contributor_data(
+    owner: str,
+    repo: str,
+    since: datetime | None = None,
+    max: int = 100,
+    excluded_users: set | None = None,
+) -> Mapping[GitHubUser, list[GitHubIssue | GitHubPullRequest | GitHubCommit]]:
+    since = since or gh_util.settings.default_since
+
+    excluded_users = excluded_users or {}
+
+    contributors_activity = {}
+
+    async with GHClient() as client:
+        events = await client.get(
+            f"/repos/{owner}/{repo}/events", params={"per_page": max}
+        )
+
+        for event in parse_as(list[GitHubEvent], events.json()):
+            if event.actor.login in excluded_users or event.created_at < since:
+                continue
+
+            activity = contributors_activity.setdefault(
+                event.actor,
+                {
+                    "created_issues": [],
+                    "created_pull_requests": [],
+                    "merged_commits": [],
+                },
+            )
+
+            if event.type == "IssuesEvent" and event.payload.action == "opened":
+                activity["created_issues"].append(event.payload.issue)
+
+            elif event.type == "PullRequestEvent" and event.payload.action == "opened":
+                activity["created_pull_requests"].append(event.payload.pull_request)
+
+            elif event.type == "PushEvent":
+                commits = [
+                    GitHubCommit.model_validate(commit)
+                    for commit in event.payload.commits
+                    if "Merge" not in commit.message
+                ]
+                activity["merged_commits"].extend(commits)
+
+    return contributors_activity

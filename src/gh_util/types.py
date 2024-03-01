@@ -11,8 +11,24 @@ class GitHubResourceModel(BaseModel):
 
 
 class GitHubUser(GitHubResourceModel):
+    model_config = ConfigDict(frozen=True)
+    id: int
     login: str
+    display_login: str | None = None
+    gravatar_id: str | None = None
     url: HttpUrl
+    avatar_url: HttpUrl
+
+    def __str__(self) -> str:
+        return f"{self.id}: {self.login}"
+
+
+class GitHubOrg(BaseModel):
+    id: int
+    login: str
+    gravatar_id: str | None = None
+    url: HttpUrl
+    avatar_url: HttpUrl
 
 
 class GitHubLabel(BaseModel):
@@ -26,9 +42,14 @@ class GitHubLabel(BaseModel):
 
 
 class GitHubRepo(GitHubResourceModel):
+    id: int
     name: str
-    owner: GitHubUser
+    url: HttpUrl
     description: str | None = None
+
+    @property
+    def owner(self) -> str:
+        return self.name.split("/")[0]
 
 
 class GitHubComment(GitHubResourceModel):
@@ -72,6 +93,11 @@ class GitHubBranch(GitHubResourceModel):
     repo: GitHubRepo
 
 
+class GitHubCommit(GitHubResourceModel):
+    url: HttpUrl
+    message: str
+
+
 class GitHubPullRequest(GitHubResourceModel):
     # Basic pull request data
     title: str
@@ -104,3 +130,24 @@ class GitHubWebhookEvent(GitHubResourceModel):
 class GitHubIssueEvent(GitHubWebhookEvent):
     issue: GitHubIssue
     comment: GitHubComment | None = None
+
+
+class GitHubPullRequestEvent(GitHubWebhookEvent):
+    pull_request: GitHubPullRequest
+
+
+class GitHubEventPayload(GitHubResourceModel):
+    action: str | None = None
+
+    commits: list[GitHubCommit] = Field(default_factory=list)
+
+
+class GitHubEvent(GitHubResourceModel):
+    id: str
+    type: str
+    actor: GitHubUser
+    repo: GitHubRepo
+    payload: GitHubEventPayload
+    public: bool
+    created_at: datetime
+    org: GitHubOrg | None = None
