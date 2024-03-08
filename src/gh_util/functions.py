@@ -422,7 +422,7 @@ async def fetch_contributor_data(
 
             elif event.type == "PushEvent":
                 commits = [
-                    GitHubCommit.model_validate(commit)
+                    commit
                     for commit in event.payload.commits
                     if "Merge" not in commit.message
                 ]

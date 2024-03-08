@@ -19,6 +19,9 @@ from prefect.events.schemas import DeploymentTrigger
 @flow(log_prints=True)
 async def do(event_body_json: str):
     """Label issues based on incoming webhook events from GitHub."""
+
+    print("we out here")
+
     event = GitHubWebhookEvent.model_validate_json(
         unquote(event_body_json).replace("payload=", "")
     )
