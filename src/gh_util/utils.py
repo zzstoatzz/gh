@@ -55,7 +55,7 @@ def get_functions_from_module(module: Any) -> list[Callable]:
     ]
 
 
-async def run_git_command(*args, repo_path=None):
+async def run_git_command(*args, repo_path: str | None = None) -> str:
     """Run a git command asynchronously in a given repository path."""
     process = await asyncio.create_subprocess_exec(
         "git", *args, cwd=repo_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE
