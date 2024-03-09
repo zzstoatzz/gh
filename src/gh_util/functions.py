@@ -1,10 +1,11 @@
-import asyncio
-import subprocess
 from datetime import datetime
 from typing import Any, Literal, Mapping
 
+from anyio import Path
+
 import gh_util
 from gh_util.client import GHClient
+from gh_util.contexts import clone_repo
 from gh_util.logging import get_logger
 from gh_util.types import (
     GitHubComment,
@@ -359,30 +360,6 @@ async def open_pull_request(
         return GitHubPullRequest.model_validate(response.json())
 
 
-async def run_git_command(*args, repo_path=None):
-    """Run a git command asynchronously in a given repository path."""
-    process = await asyncio.create_subprocess_exec(
-        "git", *args, cwd=repo_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    stdout, stderr = await process.communicate()
-    if process.returncode != 0:
-        error_msg = stderr.decode().strip()
-        raise Exception(f"Git command error: {error_msg}")
-    return stdout.decode().strip()
-
-
-async def clone_repo_to_tmpdir(owner: str, repo: str, tmpdir_path: str):
-    """Clone a repository to the provided directory path.
-
-    Args:
-        owner: The owner of the repository.
-        repo: The repository name.
-        tmpdir_path: The path to the directory where the repo will be cloned.
-    """
-    repo_url = f"git@github.com:{owner}/{repo}.git"
-    await run_git_command("clone", repo_url, tmpdir_path)
-
-
 async def fetch_contributor_data(
     owner: str,
     repo: str,
@@ -429,3 +406,25 @@ async def fetch_contributor_data(
                 activity["merged_commits"].extend(commits)
 
     return contributors_activity
+
+
+async def get_files_matching_glob(
+    owner: str,
+    repo: str,
+    glob_pattern: str,
+    path: Path | None = None,
+) -> list[Path]:
+    """Get all files from a repository that match a given glob pattern.
+
+    Args:
+        owner: The owner of the repository.
+        repo: The repository name.
+        glob_pattern: The glob pattern to match files against.
+        path: The path to clone the repository to. If not provided, a temporary directory will be used.
+
+    Returns:
+        List[Path]: A list of file paths that match the glob pattern.
+    """
+    async with clone_repo(owner, repo, path) as repo_path:
+        matching_files = list(repo_path.glob(glob_pattern))
+        return matching_files

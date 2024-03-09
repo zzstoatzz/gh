@@ -2,6 +2,10 @@
 
 A minimal Python library for interacting with GitHub's API, using `httpx` and `Pydantic`.
 
+## **NOTE**
+This library is under active development and will likely change.
+
+
 ## Installation
 
 ```bash
