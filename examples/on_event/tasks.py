@@ -13,7 +13,6 @@ Setup:
     ```
 """
 from enum import Enum
-from urllib.parse import unquote
 
 import marvin
 from gh_util.functions import (
@@ -22,11 +21,10 @@ from gh_util.functions import (
     update_labels_on_issue,
 )
 from gh_util.types import GitHubIssue, GitHubIssueEvent, GitHubLabel
-from prefect import flow, task
-from prefect.events.schemas import DeploymentTrigger
+from prefect import task
+from prefect.task_server import serve as serve_tasks
 
 
-@task
 async def get_appropriate_labels(
     issue: GitHubIssue, label_options: set[GitHubLabel]
 ) -> set[str]:
@@ -42,32 +40,33 @@ async def get_appropriate_labels(
         """Return appropriate labels for a GitHub issue based on its body.
 
         If existing labels are sufficient, return them. If existing labels are no
-        longer irrelevant, do _not_ return them.
+        longer relevant, do _not_ return them.
         """
 
     return {i.value for i in await get_labels(issue)}
 
 
-@flow(log_prints=True)
-async def label_issues(event_body_json: str):
+@task(
+    log_prints=True,
+    retries=(r := 5),
+    retry_delay_seconds=list(map(lambda x: 2**x, range(r - 2, r * 2 - 2))),
+)
+async def label_issues(event: GitHubIssueEvent):
     """Label issues based on incoming webhook events from GitHub."""
-    event = GitHubIssueEvent.model_validate_json(
-        unquote(event_body_json).replace("payload=", "")
-    )
 
     print(f"Issue '#{event.issue.number} - {event.issue.title}' was {event.action}")
 
     owner, repo = event.repository.owner.login, event.repository.name
 
-    issue = await task(fetch_repo_issue)(
+    issue = await fetch_repo_issue(
         owner, repo, event.issue.number, include_comments=True
     )
 
-    label_options = await task(fetch_repo_labels)(owner, repo)
+    label_options = await fetch_repo_labels(owner, repo)
 
     labels = await get_appropriate_labels(issue=issue, label_options=label_options)
 
-    await task(update_labels_on_issue)(
+    await update_labels_on_issue(
         owner=owner,
         repo=repo,
         issue_number=issue.number,
@@ -78,12 +77,4 @@ async def label_issues(event_body_json: str):
 
 
 if __name__ == "__main__":
-    label_issues.serve(
-        name="Label GitHub Issues",
-        triggers=[
-            DeploymentTrigger(
-                expect={"gh.issue*"},
-                parameters={"event_body_json": "{{ event.payload.body }}"},
-            )
-        ],
-    )
+    serve_tasks(label_issues)

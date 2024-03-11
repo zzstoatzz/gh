@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  tasks:
+    build:
+      context: .
+      dockerfile: Dockerfile.do
+    command: python tasks.py
+    restart: always
+    env_file: .env
+
+  deployment:
+    build:
+      context: .
+      dockerfile: Dockerfile.do
+    command: python do.py
+    restart: always
+    env_file: .env
+
+  redis:
+    image: redis:latest
+    restart: always
