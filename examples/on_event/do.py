@@ -4,15 +4,16 @@ Setup:
     Install and export the necessary environment variables:
     ```bash
     pip install gh-util marvin prefect
-    
+
     export GITHUB_TOKEN=<your-github-token>
     export OPENAI_API_KEY=<your-openai-api-key>
     export PREFECT_API_URL=<your-prefect-api-url>
     export PREFECT_API_KEY=<your-prefect-api-key>
     ```
-    
+
     see `Dockerfile.do`
 """
+
 from urllib.parse import unquote
 
 from devtools import debug

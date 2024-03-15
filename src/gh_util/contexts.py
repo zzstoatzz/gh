@@ -1,9 +1,10 @@
 import tempfile
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import AsyncGenerator
 
-from gh_util.utils import run_git_command
+from anyio import Path
+
+from gh_util.utilities.process import run_gh_command
 
 
 @asynccontextmanager
@@ -20,13 +21,11 @@ async def clone_repo(
     Yields:
         Path: The path to the cloned repository.
     """
-    repo_url = f"git@github.com:{owner}/{repo}.git"
-
     if path is None:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir)
-            await run_git_command("clone", repo_url, str(path))
+            await run_gh_command("repo", "clone", f"{owner}/{repo}", str(path))
             yield path
     else:
-        await run_git_command("clone", repo_url, str(path))
+        await run_gh_command("repo", "clone", f"{owner}/{repo}", str(path))
         yield path

@@ -1,6 +1,3 @@
-import asyncio
-import inspect
-import subprocess
 from typing import Any, Callable, Literal, TypeVar, get_origin
 
 from pydantic import TypeAdapter
@@ -29,7 +26,7 @@ def parse_as(
     Example:
         ```python
         from gh.types import GitHubIssue
-        from gh.utils import parse_as
+        from gh.utilities.pydantic import parse_as
 
         issue = parse_as(GitHubIssue, {"title": "Test Issue"})
         print(issue.title)
@@ -44,24 +41,3 @@ def parse_as(
         data = next(iter(data.values()))
 
     return parser(data)
-
-
-def get_functions_from_module(module: Any) -> list[Callable]:
-    return [
-        fn
-        for fn_name in dir(module)
-        if inspect.isfunction(fn := getattr(module, fn_name))
-        and fn.__module__ == module.__name__
-    ]
-
-
-async def run_git_command(*args, repo_path: str | None = None) -> str:
-    """Run a git command asynchronously in a given repository path."""
-    process = await asyncio.create_subprocess_exec(
-        "git", *args, cwd=repo_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    stdout, stderr = await process.communicate()
-    if process.returncode != 0:
-        error_msg = stderr.decode().strip()
-        raise Exception(f"Git command error: {error_msg}")
-    return stdout.decode().strip()

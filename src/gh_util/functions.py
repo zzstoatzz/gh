@@ -17,7 +17,8 @@ from gh_util.types import (
     GitHubRelease,
     GitHubUser,
 )
-from gh_util.utils import parse_as
+from gh_util.utilities.process import run_gh_command, run_git_command
+from gh_util.utilities.pydantic import parse_as
 
 logger = get_logger(__name__)
 
@@ -428,3 +429,86 @@ async def get_files_matching_glob(
     async with clone_repo(owner, repo, path) as repo_path:
         matching_files = list(repo_path.glob(glob_pattern))
         return matching_files
+
+
+async def get_default_branch_name_for_repo(owner: str, repo: str) -> str:
+    return await run_gh_command(
+        "repo",
+        "view",
+        f"{owner}/{repo}",
+        "--json",
+        "defaultBranchRef",
+        "--jq",
+        ".defaultBranchRef.name",
+    )
+
+
+async def create_commit(
+    owner: str,
+    repo: str,
+    path: str,
+    content: str,
+    message: str,
+    branch: str,
+    base_branch: str | None = None,
+):
+    """
+    Create a commit with the given file content on a specified branch.
+
+    Args:
+        owner: The owner of the repository.
+        repo: The repository name.
+        path: The path within the repository to write the file to.
+        content: The content of the file.
+        message: The commit message.
+        branch: The branch to create the commit on.
+        base_branch: The base branch to create the new branch from. If not provided, the default branch will be used.
+
+    Returns:
+        None
+    """
+    async with clone_repo(owner, repo) as repo_path:
+        try:
+            await run_git_command("checkout", branch, cwd=repo_path)
+            logger.info(
+                f"Checked out branch '{branch}' in the '{owner}/{repo}' repository."
+            )
+        except Exception:
+            base_branch = base_branch or await get_default_branch_name_for_repo(
+                owner, repo
+            )
+            await run_git_command("checkout", "-b", branch, base_branch, cwd=repo_path)
+            logger.info(
+                f"Created new branch '{branch}' based on '{base_branch}' in the '{owner}/{repo}' repository."
+            )
+
+        file_path = repo_path / path
+        await file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        await file_path.write_text(content)
+        await run_git_command("add", path, cwd=repo_path)
+        logger.info(
+            f"Staged changes for file '{path}' in the '{owner}/{repo}' repository."
+        )
+
+        try:
+            await run_git_command("commit", "-m", message, cwd=repo_path)
+            logger.info(
+                f"Created commit with message '{message}' in the '{owner}/{repo}' repository."
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to create commit in the '{owner}/{repo}' repository. Error: {str(e)}"
+            )
+            raise
+
+        try:
+            await run_git_command("push", "-u", "origin", branch, cwd=repo_path)
+            logger.info(
+                f"Pushed changes to branch '{branch}' in the '{owner}/{repo}' repository."
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to push changes to branch '{branch}' in the '{owner}/{repo}' repository. Error: {str(e)}"
+            )
+            raise
