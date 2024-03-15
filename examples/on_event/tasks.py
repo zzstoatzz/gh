@@ -7,11 +7,12 @@ Uses `prefect` to deploy/serve the webhook event handler (Prefect Cloud required
 Setup:
     ```bash
     pip install gh-util marvin prefect
-    
+
     export GITHUB_TOKEN=<your-github-token>
     export OPENAI_API_KEY=<your-openai-api-key>
     ```
 """
+
 from enum import Enum
 
 import marvin
