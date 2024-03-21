@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: repo-react-config
+data:
+  GITHUB_TOKEN: |-
+    valueFrom:
+      secretKeyRef:
+        name: gh-util-token
+        key: GITHUB_TOKEN
+  OPENAI_API_KEY: |-
+    valueFrom:
+      secretKeyRef:
+        name: openai-api-key
+        key: OPENAI_API_KEY
+  PREFECT_API_URL: |-
+    valueFrom:
+      secretKeyRef:
+        name: prefect-api-url
+        key: PREFECT_API_URL
+  PREFECT_API_KEY: |-
+    valueFrom:
+      secretKeyRef:
+        name: prefect-api-key
+        key: PREFECT_API_KEY
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: repo-react
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: repo-react
+  template:
+    metadata:
+      labels:
+        app: repo-react
+    spec:
+      containers:
+      - name: repo-react
+        image: zzstoatzz/ayy:latest
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: "1"
+            memory: "512Mi"
+          requests:
+            cpu: "0.5"
+            memory: "256Mi"
+        envFrom:
+        - configMapRef:
+            name: repo-react-config
+      - name: tasks
+        image: zzstoatzz/ayy:latest
+        command: ["python", "tasks.py"]
+        envFrom:
+        - configMapRef:
+            name: repo-react-config
+      - name: redis
+        image: redis:latest
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+spec:
+  selector:
+    app: repo-react
+  ports:
+  - port: 6379
+    targetPort: 6379

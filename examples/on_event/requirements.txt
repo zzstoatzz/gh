@@ -1,3 +1,3 @@
 marvin
-git+https://github.com/zzstoatzz/gh.git
-git+https://github.com/prefecthq/prefect.git@task-scheduling-avoid-task-key-trap
+prefect
+gh_util
