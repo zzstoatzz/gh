@@ -13,7 +13,7 @@ Setup:
 
     see `Dockerfile.do`
 """
-
+from urllib.parse import unquote
 
 from devtools import debug
 from gh_util.types import GitHubWebhookEvent
@@ -43,10 +43,14 @@ async def label_issues_if_appropriate(
     persist_result=True,
     on_completion=[label_issues_if_appropriate],
 )
-async def do(event: GitHubWebhookEvent) -> GitHubWebhookEvent | None:
+async def do(event_json_str: str) -> GitHubWebhookEvent | None:
     """do something when GitHub some event occurs"""
 
-    debug(event)
+    debug(
+        event := GitHubWebhookEvent.model_validate_json(
+            unquote(event_json_str).replace("payload=", "")
+        )
+    )
 
     print(f"responding to {(kind := getattr(event, 'action', 'unknown'))} event")
 
@@ -61,12 +65,7 @@ if __name__ == "__main__":
         triggers=[
             DeploymentTrigger(
                 expect={"gh.issue*"},
-                parameters={
-                    "event": {
-                        "__prefect_kind": "jinja",
-                        "template": "{{ event.payload.body }}"
-                    }
-                },
+                parameters={"event_json_str": "{{ event.payload.body }}"},
             )
         ],
     )
