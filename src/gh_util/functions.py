@@ -413,7 +413,7 @@ async def get_files_matching_glob(
     owner: str,
     repo: str,
     glob_pattern: str,
-    path: Path | None = None,
+    path: str | None = None,
 ) -> list[Path]:
     """Get all files from a repository that match a given glob pattern.
 
@@ -426,7 +426,7 @@ async def get_files_matching_glob(
     Returns:
         List[Path]: A list of file paths that match the glob pattern.
     """
-    async with clone_repo(owner, repo, path) as repo_path:
+    async with clone_repo(owner, repo, Path(path)) as repo_path:
         matching_files = list(repo_path.glob(glob_pattern))
         return matching_files
 
