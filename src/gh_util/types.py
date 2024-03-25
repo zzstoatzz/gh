@@ -44,12 +44,9 @@ class GitHubLabel(BaseModel):
 class GitHubRepo(GitHubResourceModel):
     id: int
     name: str
+    full_name: str
     url: HttpUrl
     description: str | None = None
-
-    @property
-    def owner(self) -> str:
-        return self.name.split("/")[0]
 
 
 class GitHubComment(GitHubResourceModel):
@@ -120,6 +117,15 @@ class GitHubPullRequest(GitHubResourceModel):
     merged_at: datetime | None = None
 
 
+class GitHubWebhookEventHeaders(BaseModel):
+    model_config = dict(extra="ignore")
+
+    host: str = Field(...)
+    event: str = Field(alias="x-github-event")
+    hook_id: int = Field(alias="x-github-hook-id")
+    delivery: str = Field(alias="x-github-delivery")
+
+
 class GitHubWebhookEvent(GitHubResourceModel):
     action: str
 
@@ -151,3 +157,8 @@ class GitHubEvent(GitHubResourceModel):
     public: bool
     created_at: datetime
     org: GitHubOrg | None = None
+
+
+class GitHubWebhookRequest(BaseModel):
+    headers: GitHubWebhookEventHeaders
+    event: GitHubWebhookEvent
