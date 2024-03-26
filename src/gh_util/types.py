@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, PrivateAttr
 
 
 class GitHubResourceModel(BaseModel):
@@ -160,5 +160,7 @@ class GitHubEvent(GitHubResourceModel):
 
 
 class GitHubWebhookRequest(BaseModel):
+    _received_at: datetime = PrivateAttr(default_factory=lambda: datetime.now(UTC))
+
     headers: GitHubWebhookEventHeaders
     event: GitHubWebhookEvent
