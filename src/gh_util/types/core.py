@@ -1,6 +1,6 @@
-from datetime import UTC, datetime
+from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 
 class GitHubResourceModel(BaseModel):
@@ -117,31 +117,6 @@ class GitHubPullRequest(GitHubResourceModel):
     merged_at: datetime | None = None
 
 
-class GitHubWebhookEventHeaders(BaseModel):
-    model_config = dict(extra="ignore")
-
-    host: str = Field(...)
-    event: str = Field(alias="x-github-event")
-    hook_id: int = Field(alias="x-github-hook-id")
-    delivery: str = Field(alias="x-github-delivery")
-
-
-class GitHubWebhookEvent(GitHubResourceModel):
-    action: str
-
-    repository: GitHubRepo | None = None
-    sender: GitHubUser | None = None
-
-
-class GitHubIssueEvent(GitHubWebhookEvent):
-    issue: GitHubIssue
-    comment: GitHubComment | None = None
-
-
-class GitHubPullRequestEvent(GitHubWebhookEvent):
-    pull_request: GitHubPullRequest
-
-
 class GitHubEventPayload(GitHubResourceModel):
     action: str | None = None
 
@@ -157,10 +132,3 @@ class GitHubEvent(GitHubResourceModel):
     public: bool
     created_at: datetime
     org: GitHubOrg | None = None
-
-
-class GitHubWebhookRequest(BaseModel):
-    _received_at: datetime = PrivateAttr(default_factory=lambda: datetime.now(UTC))
-
-    headers: GitHubWebhookEventHeaders
-    event: GitHubWebhookEvent
