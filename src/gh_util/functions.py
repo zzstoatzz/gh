@@ -4,7 +4,6 @@ from typing import Any, Literal, Mapping
 
 import gh_util
 from gh_util.client import GHClient
-from gh_util.contexts import clone_repo
 from gh_util.logging import get_logger
 from gh_util.types import (
     GitHubComment,
@@ -16,7 +15,7 @@ from gh_util.types import (
     GitHubRelease,
     GitHubUser,
 )
-from gh_util.utilities.process import run_gh_command, run_git_command
+from gh_util.utilities.process import run_gh_command
 from gh_util.utilities.pydantic import parse_as
 
 logger = get_logger(__name__)
@@ -446,9 +445,10 @@ async def create_commit(
     message: str,
     branch: str,
     base_branch: str | None = None,
-):
+    create_branch: bool = True,
+) -> GitHubCommit:
     """
-    Create a commit with the given file content on a specified branch.
+    Create a commit with the given file content on a specified branch in a remote repository.
 
     Args:
         owner: The owner of the repository.
@@ -458,52 +458,91 @@ async def create_commit(
         message: The commit message.
         branch: The branch to create the commit on.
         base_branch: The base branch to create the new branch from. If not provided, the default branch will be used.
+        create_branch: Whether to create the branch if it doesn't exist. Default is True.
 
     Returns:
-        None
+        GitHubCommit: The created commit.
+
+    Example:
+        ```python
+        from gh_util.functions import create_commit
+
+        commit = await create_commit(
+            owner="prefecthq",
+            repo="marvin",
+            path="data/example.txt",
+            content="Hello, World!",
+            message="Add example file",
+            branch="feature/example",
+            base_branch="main",
+            create_branch=True
+        )
+        print(commit)
+        ```
     """
-    async with clone_repo(owner, repo) as repo_path:
-        try:
-            await run_git_command("checkout", branch, cwd=repo_path)
-            logger.info(
-                f"Checked out branch '{branch}' in the '{owner}/{repo}' repository."
-            )
-        except Exception:
-            base_branch = base_branch or await get_default_branch_name_for_repo(
-                owner, repo
-            )
-            await run_git_command("checkout", "-b", branch, base_branch, cwd=repo_path)
-            logger.info(
-                f"Created new branch '{branch}' based on '{base_branch}' in the '{owner}/{repo}' repository."
-            )
+    async with GHClient() as client:
+        base_branch = base_branch or await get_default_branch_name_for_repo(owner, repo)
 
-        file_path = repo_path / path
-        await file_path.parent.mkdir(parents=True, exist_ok=True)
+        # Get the SHA of the base branch
+        base_branch_sha = await client.get(
+            f"/repos/{owner}/{repo}/git/refs/heads/{base_branch}"
+        )
+        base_tree_sha = base_branch_sha.json()["object"]["sha"]
 
-        await file_path.write_text(content)
-        await run_git_command("add", path, cwd=repo_path)
-        logger.info(
-            f"Staged changes for file '{path}' in the '{owner}/{repo}' repository."
+        # Create a new tree with the file content
+        new_tree = await client.post(
+            f"/repos/{owner}/{repo}/git/trees",
+            json={
+                "base_tree": base_tree_sha,
+                "tree": [
+                    {
+                        "path": path,
+                        "mode": "100644",
+                        "type": "blob",
+                        "content": content,
+                    }
+                ],
+            },
+        )
+        new_tree_sha = new_tree.json()["sha"]
+
+        # Create a new commit with the new tree
+        new_commit = await client.post(
+            f"/repos/{owner}/{repo}/git/commits",
+            json={
+                "message": message,
+                "tree": new_tree_sha,
+                "parents": [base_tree_sha],
+            },
+        )
+        new_commit_sha = new_commit.json()["sha"]
+
+        # Create the branch reference if it doesn't exist
+        if create_branch:
+            try:
+                await client.get(f"/repos/{owner}/{repo}/git/refs/heads/{branch}")
+            except Exception as e:
+                if "Not Found" in str(e):
+                    await client.post(
+                        f"/repos/{owner}/{repo}/git/refs",
+                        json={
+                            "ref": f"refs/heads/{branch}",
+                            "sha": new_commit_sha,
+                        },
+                    )
+                else:
+                    raise
+
+        # Update the branch reference to point to the new commit
+        await client.patch(
+            f"/repos/{owner}/{repo}/git/refs/heads/{branch}",
+            json={"sha": new_commit_sha},
         )
 
-        try:
-            await run_git_command("commit", "-m", message, cwd=repo_path)
-            logger.info(
-                f"Created commit with message '{message}' in the '{owner}/{repo}' repository."
-            )
-        except Exception as e:
-            logger.error(
-                f"Failed to create commit in the '{owner}/{repo}' repository. Error: {str(e)}"
-            )
-            raise
+        logger.info_kv(
+            "Commit created",
+            f"Created commit with message '{message}' on branch '{branch}' in repository '{owner}/{repo}'",
+            "green",
+        )
 
-        try:
-            await run_git_command("push", "-u", "origin", branch, cwd=repo_path)
-            logger.info(
-                f"Pushed changes to branch '{branch}' in the '{owner}/{repo}' repository."
-            )
-        except Exception as e:
-            logger.error(
-                f"Failed to push changes to branch '{branch}' in the '{owner}/{repo}' repository. Error: {str(e)}"
-            )
-            raise
+        return GitHubCommit.model_validate(new_commit.json())
