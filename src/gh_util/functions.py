@@ -1,7 +1,6 @@
+import fnmatch
 from datetime import datetime
 from typing import Any, Literal, Mapping
-
-from anyio import Path
 
 import gh_util
 from gh_util.client import GHClient
@@ -409,26 +408,22 @@ async def fetch_contributor_data(
     return contributors_activity
 
 
-async def get_files_matching_glob(
-    owner: str,
-    repo: str,
-    glob_pattern: str,
-    path: str | None = None,
-) -> list[Path]:
-    """Get all files from a repository that match a given glob pattern.
+async def get_filenames_from_directory(
+    owner: str, repo: str, directory_path: str, pattern: str | None = None
+) -> list[str]:
+    async with GHClient() as client:
+        response = await client.get(f"/repos/{owner}/{repo}/contents/{directory_path}")
 
-    Args:
-        owner: The owner of the repository.
-        repo: The repository name.
-        glob_pattern: The glob pattern to match files against.
-        path: The path to clone the repository to. If not provided, a temporary directory will be used.
+        filenames: list[str] = [
+            item["name"] for item in response.json() if item["type"] == "file"
+        ]
 
-    Returns:
-        List[Path]: A list of file paths that match the glob pattern.
-    """
-    async with clone_repo(owner, repo, Path(path)) as repo_path:
-        matching_files = list(repo_path.glob(glob_pattern))
-        return matching_files
+        if pattern:
+            filenames = [
+                filename for filename in filenames if fnmatch.fnmatch(filename, pattern)
+            ]
+
+        return filenames
 
 
 async def get_default_branch_name_for_repo(owner: str, repo: str) -> str:
