@@ -67,6 +67,34 @@ class GitHubIssue(GitHubResourceModel):
     comments_url: HttpUrl | None = None
 
 
+class GithubReactions(GitHubResourceModel):
+    url: HttpUrl
+    total_count: int
+    thumbs_up: int = Field(alias="+1")
+    thumbs_down: int = Field(alias="-1")
+    laugh: int
+    hooray: int
+    confused: int
+    heart: int
+    rocket: int
+    eyes: int
+
+    def __str__(self) -> str:
+        emojis, names = zip(
+            ("👍", self.thumbs_up),
+            ("👎", self.thumbs_down),
+            ("😄", self.laugh),
+            ("🎉", self.hooray),
+            ("😕", self.confused),
+            ("❤️", self.heart),
+            ("🚀", self.rocket),
+            ("👀", self.eyes),
+        )
+        return "   ".join(
+            f"{emoji} {count}" for emoji, count in zip(emojis, names) if count > 0
+        )
+
+
 class GitHubRelease(GitHubResourceModel):
     tag_name: str
     published_at: datetime
@@ -75,6 +103,8 @@ class GitHubRelease(GitHubResourceModel):
 
     name: str | None = None
     body: str | None = None
+    reactions: GithubReactions | None = None
+    mentions_count: int | None = None
 
 
 class GitHubBranch(GitHubResourceModel):

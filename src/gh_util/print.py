@@ -19,13 +19,17 @@ def print_release(release: types.GitHubRelease) -> None:
     )
     table.add_column("Field", style="dim", width=12)
     table.add_column("Value")
-
     table.add_row("Repository", f"{owner}/{repo}")
     table.add_row("Release", release.name)
     table.add_row(
         "Published", release.published_at.strftime("%A, %d %B %Y %H:%M:%S %Z")
     )
-    table.add_row("Description", Markdown(release.body))
+    if release.reactions:
+        table.add_row("Reactions", str(release.reactions))
+    table.add_row(
+        "Body",
+        Markdown(release.body),
+    )
 
     console.print(table)
     console.print(

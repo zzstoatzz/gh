@@ -9,4 +9,4 @@ async def main(owner: str, repo: str) -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main("prefecthq", "marvin"))
+    asyncio.run(main("prefecthq", "prefect"))

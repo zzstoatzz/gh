@@ -45,10 +45,14 @@ class GHClient(httpx.AsyncClient):
         """Allow passing a path relative to `GH_UTIL_BASE_URL`."""
         url = str(url)
         if url.startswith("/"):
-            url = f"{gh_util.settings.base_url}{url}"
+            if url.startswith("/raw"):
+                url = gh_util.settings.raw_base_url + url.replace("/raw", "", 1)
+            else:
+                url = f"{gh_util.settings.base_url}{url}"
 
         try:
             response = await super().request(method, url, *args, **kwargs)
+
             response.raise_for_status()
 
         except httpx.HTTPStatusError as e:

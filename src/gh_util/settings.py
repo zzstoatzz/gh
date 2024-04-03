@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     token: SecretStr | None = None
 
     base_url: str = "https://api.github.com"
+    raw_base_url: str = "https://raw.githubusercontent.com"
 
     default_base: str = "main"
     default_since: datetime = datetime.now(ZoneInfo("UTC")) - timedelta(days=1)

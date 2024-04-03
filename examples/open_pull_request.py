@@ -8,10 +8,9 @@ async def main():
     pr = await open_pull_request(
         owner="zzstoatzz",
         repo="gh",
-        head="chugging",
+        head="🦀",
         body="Even a broken clock is right twice a day",
         draft=True,
-        check_for_existing=True,
     )
     print_repo_issue(pr)
     print(f"Pull Request URL: {pr.html_url}")

@@ -1,6 +1,10 @@
 import fnmatch
+import json
 from datetime import datetime
 from typing import Any, Literal, Mapping
+
+from httpx import HTTPStatusError
+from rich.status import Status
 
 import gh_util
 from gh_util.client import GHClient
@@ -346,16 +350,30 @@ async def open_pull_request(
                 )
                 return GitHubPullRequest.model_validate(existing_prs.json()[0])
 
-        response = await client.post(
-            f"/repos/{owner}/{repo}/pulls",
-            json={
-                "title": title,
-                "head": head,
-                "base": base,
-                "body": body,
-                "draft": draft,
-            },
-        )
+        try:
+            response = await client.post(
+                f"/repos/{owner}/{repo}/pulls",
+                json={
+                    "title": title,
+                    "head": head,
+                    "base": base,
+                    "body": body,
+                    "draft": draft,
+                },
+            )
+        except HTTPStatusError as e:
+            logger.error_kv(
+                "Failed to open PR",
+                f"Failed to open PR from {head} to {base} in {owner}/{repo}",
+                "red",
+            )
+            match err := e.response.json()["errors"][0]:
+                case {"field": "head", "code": "invalid"}:
+                    raise ValueError(f"Invalid head branch {head!r}: {err}")
+                case _:
+                    logger.error_kv("Error", err)
+                    raise e
+
         return GitHubPullRequest.model_validate(response.json())
 
 
@@ -405,24 +423,6 @@ async def fetch_contributor_data(
                 activity["merged_commits"].extend(commits)
 
     return contributors_activity
-
-
-async def get_filenames_from_directory(
-    owner: str, repo: str, directory_path: str, pattern: str | None = None
-) -> list[str]:
-    async with GHClient() as client:
-        response = await client.get(f"/repos/{owner}/{repo}/contents/{directory_path}")
-
-        filenames: list[str] = [
-            item["name"] for item in response.json() if item["type"] == "file"
-        ]
-
-        if pattern:
-            filenames = [
-                filename for filename in filenames if fnmatch.fnmatch(filename, pattern)
-            ]
-
-        return filenames
 
 
 async def get_default_branch_name_for_repo(owner: str, repo: str) -> str:
@@ -546,3 +546,143 @@ async def create_commit(
         )
 
         return GitHubCommit.model_validate(new_commit.json())
+
+
+async def read_file(
+    owner: str,
+    repo: str,
+    path: str,
+    branch: str | None = None,
+) -> str:
+    """
+    Read the content of a file from a remote repository.
+
+    Args:
+        owner: The owner of the repository.
+        repo: The repository name.
+        path: The path of the file within the repository.
+        branch: The branch to read the file from. If not provided, the default branch will be used.
+
+    Returns:
+        str: The content of the file.
+
+    Example:
+        ```python
+        from gh_util.functions import read_file
+
+        content = await read_file(
+            owner="prefecthq",
+            repo="marvin",
+            path="cookbook/translate_schemas.py",
+            branch="main"
+        )
+        print(content)
+        ```
+    """
+    async with GHClient() as client:
+        branch = branch or gh_util.settings.default_base
+
+        try:
+            response = await client.get(f"/raw/{owner}/{repo}/{branch}/{path}")
+
+        except json.JSONDecodeError:
+            logger.warning_kv(
+                "File not found",
+                f"File '{path}' not found in branch '{branch}' in repository '{owner}/{repo}'",
+            )
+            return ""
+
+        logger.info_kv(
+            "File read",
+            f"Read content of file '{path}' from branch '{branch}' in repository '{owner}/{repo}'",
+        )
+
+        return response.text
+
+
+async def fetch_filenames_from_directory(
+    owner: str, repo: str, directory_path: str = ".", pattern: str | None = None
+) -> list[str]:
+    async with GHClient() as client:
+        response = await client.get(f"/repos/{owner}/{repo}/contents/{directory_path}")
+
+        filenames: list[str] = [
+            item["name"] for item in response.json() if item["type"] == "file"
+        ]
+
+        if pattern:
+            filenames = [
+                filename for filename in filenames if fnmatch.fnmatch(filename, pattern)
+            ]
+
+        return filenames
+
+
+async def fetch_directory_structure(
+    owner: str,
+    repo: str,
+    directory_path: str = ".",
+    branch: str | None = None,
+    levels: int = 2,
+    pattern: str | None = None,
+) -> str:
+    """
+    Fetch the directory structure of a remote repository with a specified number of levels and glob pattern.
+
+    Args:
+        owner: The owner of the repository.
+        repo: The repository name.
+        directory_path: The path of the directory within the repository. Default is ".".
+        branch: The branch to fetch the directory structure from. If not provided, the default branch will be used.
+        levels: The number of levels to traverse in the directory structure. Default is 1.
+        pattern: The glob pattern to filter the files and directories. Default is None.
+
+    Returns:
+        str: The directory structure as a string.
+
+    Example:
+        ```python
+        from gh_util.functions import fetch_directory_structure
+
+        structure = await fetch_directory_structure(
+            owner="prefecthq",
+            repo="marvin",
+            directory_path="cookbook",
+            branch="main",
+            levels=3,
+        )
+        print(structure)
+        ```
+    """
+    async with GHClient() as client:
+        branch = branch or gh_util.settings.default_base
+
+        async def traverse_directory(path: str, level: int) -> str:
+            response = await client.get(
+                f"/repos/{owner}/{repo}/contents/{path}", params={"ref": branch}
+            )
+            items = response.json()
+
+            output = ""
+            for item in items:
+                if pattern and not fnmatch.fnmatch(item["name"], pattern):
+                    continue
+
+                if item["type"] == "dir":
+                    output += f"{'  ' * level}📁 {item['name']}\n"
+                    if level < levels:
+                        output += await traverse_directory(item["path"], level + 1)
+                elif item["type"] == "file":
+                    output += f"{'  ' * level}📄 {item['name']}\n"
+
+            return output
+
+        with Status(f"Fetching directory structure of '{directory_path}'"):
+            structure = await traverse_directory(directory_path, 0)
+
+        logger.info_kv(
+            f"tree -L {levels} {directory_path}",
+            f"in the '{branch}' branch of '{owner}/{repo}'",
+        )
+
+        return structure
