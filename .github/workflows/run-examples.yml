@@ -8,6 +8,9 @@ on:
     branches:
       - main
 
+env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   run-examples:
     name: python-${{ matrix.python-version }} ${{ matrix.os }}
