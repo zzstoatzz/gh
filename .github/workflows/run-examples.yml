@@ -49,13 +49,4 @@ jobs:
         uv pip install --upgrade --system -e .[dev]
 
     - name: Run examples
-      run: |
-        cd examples
-        for file in *.py; do
-          echo "Running $file"
-          python "$file"
-          if [ $? -ne 0 ]; then
-            echo "Error: $file failed with non-zero exit code"
-            exit 1
-          fi
-        done
+      run: chmod +x ./scripts/run-examples && ./scripts/run-examples
