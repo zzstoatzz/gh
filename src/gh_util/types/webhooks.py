@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from pydantic import Field, PrivateAttr
+from pydantic import Field, HttpUrl, PrivateAttr
 
 from gh_util.types.core import (
     GitHubComment,
@@ -10,6 +10,31 @@ from gh_util.types.core import (
     GitHubResourceModel,
     GitHubUser,
 )
+
+
+class GitHubHookConfig(GitHubResourceModel):
+    content_type: str
+    insecure_ssl: str
+    url: HttpUrl
+
+
+class GitHubHook(GitHubResourceModel):
+    type: str
+    id: int
+    name: str
+    active: bool
+    events: list[str]
+    config: GitHubHookConfig
+    updated_at: datetime
+    created_at: datetime
+    app_id: int
+    deliveries_url: HttpUrl
+
+
+class GitHubPingEvent(GitHubResourceModel):
+    zen: str
+    hook_id: int
+    hook: GitHubHook
 
 
 class GitHubWebhookEventHeaders(GitHubResourceModel):
