@@ -686,3 +686,49 @@ async def fetch_directory_structure(
         )
 
         return structure
+
+
+async def create_issue_comment(
+    owner: str,
+    repo: str,
+    issue_number: int,
+    body: str,
+) -> GitHubComment:
+    """
+    Create a comment on an issue or pull request.
+
+    Args:
+        owner: The owner of the repository.
+        repo: The repository name.
+        issue_number: The issue or pull request number.
+        body: The body of the comment.
+
+    Returns:
+        GitHubComment: The created comment.
+
+    Example:
+        ```python
+        from gh_util.functions import create_issue_comment
+
+        comment = await create_issue_comment(
+            owner="zzstoatzz",
+            repo="gh",
+            issue_number=4,
+            body="oi bruv"
+        )
+        print(comment)
+        ```
+    """
+    async with GHClient() as client:
+        response = await client.post(
+            f"/repos/{owner}/{repo}/issues/{issue_number}/comments",
+            json={"body": body},
+        )
+
+        logger.info_kv(
+            "Comment created",
+            f"Created comment on issue #{issue_number} in repository '{owner}/{repo}'",
+            "green",
+        )
+
+        return GitHubComment.model_validate(response.json())
