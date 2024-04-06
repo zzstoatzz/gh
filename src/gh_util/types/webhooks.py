@@ -22,7 +22,7 @@ class GitHubWebhookEventHeaders(GitHubResourceModel):
 
 
 class GitHubWebhookEvent(GitHubResourceModel):
-    action: str
+    action: str | None = None
 
     repository: GitHubRepo | None = None
     sender: GitHubUser | None = None
