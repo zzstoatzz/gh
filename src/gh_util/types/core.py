@@ -178,6 +178,13 @@ class GitHubTag(GitHubResourceModel):
     object: GitHubObject
 
 
+class GitHubRef(GitHubResourceModel):
+    ref: str
+    node_id: str
+    url: HttpUrl
+    object: GitHubObject
+
+
 class GitHubTagger(GitHubResourceModel):
     name: str
     email: str

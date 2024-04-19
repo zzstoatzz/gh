@@ -16,6 +16,7 @@ from gh_util.types import (
     GitHubIssue,
     GitHubLabel,
     GitHubPullRequest,
+    GitHubRef,
     GitHubRelease,
     GitHubTag,
     GitHubTagger,
@@ -814,3 +815,47 @@ async def create_repo_tag(
             "green",
         )
         return GitHubTag.model_validate(response.json())
+
+
+async def fetch_latest_repo_tag(
+    owner: str, repo: str, pattern: str | None = None
+) -> GitHubRef:
+    """
+    Fetch the latest tag in a GitHub repository that matches a given pattern.
+
+    Args:
+        owner: The owner of the repository.
+        repo: The repository name.
+        pattern: The glob pattern to filter the tags. If None, fetches the latest tag.
+
+    Returns:
+        GitHubRef: The latest tag matching the pattern.
+
+    Raises:
+        ValueError: If no tag matching the pattern is found.
+
+    Example:
+        ```python
+        from gh_util.functions import fetch_latest_tag_by_pattern
+
+        latest_tag = await fetch_latest_tag_by_pattern(
+            owner="zzstoatzz",
+            repo="gh",
+            pattern="*.1.1*"
+        )
+        print(f"The latest tag matching the pattern is: {latest_tag}")
+        ```
+    """
+    async with GHClient() as client:
+        params = {"per_page": 1, "order": "desc", "sort": "created"}
+        if pattern:
+            params["q"] = f"{pattern} in:ref type:tag"
+
+        response = await client.get(
+            f"/repos/{owner}/{repo}/git/refs/tags", params=params
+        )
+
+        tags = response.json()
+        if not tags:
+            raise ValueError(f"No tags found matching the pattern: {pattern}")
+        return GitHubRef.model_validate(tags[-1])
