@@ -743,7 +743,7 @@ async def create_repo_tag(
     commit_sha: str,
     message: str | None = None,
     tagger: GitHubTagger | None = None,
-) -> dict:
+) -> GitHubTag:
     """
     Create a tag in a GitHub repository.
 
