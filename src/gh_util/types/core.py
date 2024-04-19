@@ -162,3 +162,23 @@ class GitHubEvent(GitHubResourceModel):
     public: bool
     created_at: datetime
     org: GitHubOrg | None = None
+
+
+class GitHubObject(GitHubResourceModel):
+    sha: str
+    type: str
+    url: HttpUrl
+
+
+class GitHubTag(GitHubResourceModel):
+    tag: str
+    node_id: str
+    sha: str
+    url: HttpUrl
+    object: GitHubObject
+
+
+class GitHubTagger(GitHubResourceModel):
+    name: str
+    email: str
+    date: datetime | None = None

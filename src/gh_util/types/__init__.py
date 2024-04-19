@@ -10,6 +10,8 @@ from gh_util.types.core import (
     GitHubRelease,
     GitHubRepo,
     GitHubResourceModel,
+    GitHubTag,
+    GitHubTagger,
     GitHubUser,
 )
 
@@ -33,6 +35,8 @@ __all__ = [
     "GitHubRelease",
     "GitHubRepo",
     "GitHubResourceModel",
+    "GitHubTag",
+    "GitHubTagger",
     "GitHubUser",
     "GitHubIssueEvent",
     "GitHubPullRequestEvent",

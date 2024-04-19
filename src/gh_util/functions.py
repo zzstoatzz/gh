@@ -1,6 +1,6 @@
 import fnmatch
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal, Mapping
 
 from httpx import HTTPStatusError
@@ -17,6 +17,8 @@ from gh_util.types import (
     GitHubLabel,
     GitHubPullRequest,
     GitHubRelease,
+    GitHubTag,
+    GitHubTagger,
     GitHubUser,
 )
 from gh_util.utilities.process import run_gh_command
@@ -732,3 +734,83 @@ async def create_issue_comment(
         )
 
         return GitHubComment.model_validate(response.json())
+
+
+async def create_repo_tag(
+    owner: str,
+    repo: str,
+    tag_name: str,
+    commit_sha: str,
+    message: str | None = None,
+    tagger: GitHubTagger | None = None,
+) -> dict:
+    """
+    Create a tag in a GitHub repository.
+
+    Args:
+        owner: The owner of the repository.
+        repo: The repository name.
+        tag_name: The name of the tag to create.
+        commit_sha: The SHA of the commit to tag.
+        message: Optional message associated with the tag creation.
+        tagger: Optional dictionary containing the tagger's name, email, and date.
+
+    Returns:
+        GitHubTag: The created tag.
+
+    Example:
+        ```python
+        from gh_util.functions import create_repo_tag
+
+        tag = await create_repo_tag(
+            owner="zzstoatzz",
+            repo="gh",
+            tag_name="v42.0",
+            commit_sha="92fb40d0a05fbd5e4b1faf0678a6c88cc2688951",
+            message="Creating test tag",
+
+        )
+        print(tag)
+        ```
+    """
+    async with GHClient() as client:
+        if not tagger:
+            current_user = GitHubUser.model_validate((await client.get("/user")).json())
+            tagger = GitHubTagger(
+                name=current_user.name,
+                email=current_user.email,
+                date=datetime.now(UTC),
+            )
+        tag_data = {
+            "tag": tag_name,
+            "message": message or "",
+            "object": commit_sha,
+            "type": "commit",
+            "tagger": tagger.model_dump(mode="json"),
+        }
+
+        response = await client.post(f"/repos/{owner}/{repo}/git/tags", json=tag_data)
+
+        tag_sha = response.json()["sha"]
+
+        # Creating a ref for the tag
+        try:
+            await client.post(
+                f"/repos/{owner}/{repo}/git/refs",
+                json={"ref": f"refs/tags/{tag_name}", "sha": tag_sha},
+            )
+        except HTTPStatusError as e:
+            if "Reference already exists" in e.response.json()["message"]:
+                logger.warning_kv(
+                    "Tag already exists",
+                    f"Tag '{tag_name}' already exists in repository '{owner}/{repo}'",
+                    "blue",
+                )
+                return GitHubTag.model_validate(response.json())
+
+        logger.info_kv(
+            "Tag created",
+            f"Created tag '{tag_name}' at '{commit_sha}' in repository '{owner}/{repo}'",
+            "green",
+        )
+        return GitHubTag.model_validate(response.json())
