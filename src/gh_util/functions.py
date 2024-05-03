@@ -816,48 +816,48 @@ async def create_repo_tag(
         return GitHubTag.model_validate(response.json())
 
 
-async def fetch_nth_latest_repo_tag(
-    owner: str, repo: str, n: int = 1, pattern: str | None = None
+async def fetch_latest_repo_tag(
+    owner: str, repo: str, pattern: str | None = None
 ) -> GitHubRef:
     """
-    Fetch the nth latest tag in a GitHub repository that matches a given pattern.
+    Fetch the latest tag in a GitHub repository that matches a given pattern.
 
     Args:
         owner: The owner of the repository.
         repo: The repository name.
-        n: The position of the tag to fetch (1 for latest, 2 for second-latest, etc.).
-        pattern: The glob pattern to filter the tags. If None, fetches the nth latest tag.
+        pattern: The glob pattern to filter the tags. If None, fetches the latest tag.
 
     Returns:
-        GitHubRef: The nth latest tag matching the pattern.
+        GitHubRef: The latest tag matching the pattern.
 
     Raises:
-        ValueError: If no tag matching the pattern is found or if n is greater than the number of tags.
+        ValueError: If no tag matching the pattern is found.
 
     Example:
         ```python
-        from gh_util.functions import fetch_nth_latest_repo_tag
+        from gh_util.functions import fetch_latest_tag_by_pattern
 
-        second_latest_tag = await fetch_nth_latest_repo_tag(
-            owner="zzstoatzz", repo="gh", n=2, pattern="*.1.1*"
+        latest_tag = await fetch_latest_tag_by_pattern(
+            owner="zzstoatzz",
+            repo="gh",
+            pattern="*.1.1*"
         )
-        print(f"The second latest tag matching the pattern is: {second_latest_tag}")
+        print(f"The latest tag matching the pattern is: {latest_tag}")
         ```
     """
     async with GHClient() as client:
-        params = {"per_page": n, "order": "desc", "sort": "created"}
+        params = {"per_page": 1, "order": "desc", "sort": "created"}
         if pattern:
             params["q"] = f"{pattern} in:ref type:tag"
 
         response = await client.get(
             f"/repos/{owner}/{repo}/git/refs/tags", params=params
         )
+
         tags = response.json()
-
-        if len(tags) < n:
-            raise ValueError(f"Not enough tags found matching the pattern: {pattern}")
-
-        return GitHubRef.model_validate(tags[n - 1])
+        if not tags:
+            raise ValueError(f"No tags found matching the pattern: {pattern}")
+        return GitHubRef.model_validate(tags[-1])
 
 
 async def create_project_ticket(
