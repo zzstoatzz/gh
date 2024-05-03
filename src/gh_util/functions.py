@@ -651,7 +651,6 @@ async def fetch_directory_structure(
             owner="prefecthq",
             repo="marvin",
             directory_path="cookbook",
-            branch="main",
             levels=3,
         )
         print(structure)
@@ -817,45 +816,114 @@ async def create_repo_tag(
         return GitHubTag.model_validate(response.json())
 
 
-async def fetch_latest_repo_tag(
-    owner: str, repo: str, pattern: str | None = None
+async def fetch_nth_latest_repo_tag(
+    owner: str, repo: str, n: int = 1, pattern: str | None = None
 ) -> GitHubRef:
     """
-    Fetch the latest tag in a GitHub repository that matches a given pattern.
+    Fetch the nth latest tag in a GitHub repository that matches a given pattern.
 
     Args:
         owner: The owner of the repository.
         repo: The repository name.
-        pattern: The glob pattern to filter the tags. If None, fetches the latest tag.
+        n: The position of the tag to fetch (1 for latest, 2 for second-latest, etc.).
+        pattern: The glob pattern to filter the tags. If None, fetches the nth latest tag.
 
     Returns:
-        GitHubRef: The latest tag matching the pattern.
+        GitHubRef: The nth latest tag matching the pattern.
 
     Raises:
-        ValueError: If no tag matching the pattern is found.
+        ValueError: If no tag matching the pattern is found or if n is greater than the number of tags.
 
     Example:
         ```python
-        from gh_util.functions import fetch_latest_tag_by_pattern
+        from gh_util.functions import fetch_nth_latest_repo_tag
 
-        latest_tag = await fetch_latest_tag_by_pattern(
-            owner="zzstoatzz",
-            repo="gh",
-            pattern="*.1.1*"
+        second_latest_tag = await fetch_nth_latest_repo_tag(
+            owner="zzstoatzz", repo="gh", n=2, pattern="*.1.1*"
         )
-        print(f"The latest tag matching the pattern is: {latest_tag}")
+        print(f"The second latest tag matching the pattern is: {second_latest_tag}")
         ```
     """
     async with GHClient() as client:
-        params = {"per_page": 1, "order": "desc", "sort": "created"}
+        params = {"per_page": n, "order": "desc", "sort": "created"}
         if pattern:
             params["q"] = f"{pattern} in:ref type:tag"
 
         response = await client.get(
             f"/repos/{owner}/{repo}/git/refs/tags", params=params
         )
-
         tags = response.json()
-        if not tags:
-            raise ValueError(f"No tags found matching the pattern: {pattern}")
-        return GitHubRef.model_validate(tags[-1])
+
+        if len(tags) < n:
+            raise ValueError(f"Not enough tags found matching the pattern: {pattern}")
+
+        return GitHubRef.model_validate(tags[n - 1])
+
+
+async def create_project_ticket(
+    owner: str,
+    repo: str,
+    project_id: int,
+    title: str,
+    body: str | None = None,
+    assignee: str | None = None,
+    labels: list[str] | None = None,
+) -> GitHubIssue:
+    """
+    Create a ticket on a GitHub project board.
+
+    Args:
+        owner: The owner of the repository.
+        repo: The repository name.
+        project_id: The ID of the project board.
+        title: The title of the ticket.
+        body: Optional body content of the ticket.
+        assignee: Optional login of the user to assign the ticket to.
+        labels: Optional list of label names to add to the ticket.
+
+    Returns:
+        GitHubIssue: The created ticket.
+
+    Example:
+    ```python
+    from gh_util.functions import create_project_ticket
+
+    ticket = await create_project_ticket(
+        owner="zzstoatzz",
+        repo="gh",
+        project_id=1,
+        title="Implement new feature",
+        body="Add support for XYZ functionality",
+        assignee="zzstoatzz",
+        labels=["enhancement", "backend"],
+    )
+    print(ticket)
+    ```
+    """
+    async with GHClient() as client:
+        # Create the issue
+        issue_data = {
+            "title": title,
+            "body": body or "",
+        }
+        if assignee:
+            issue_data["assignee"] = assignee
+        if labels:
+            issue_data["labels"] = labels
+
+        response = await client.post(f"/repos/{owner}/{repo}/issues", json=issue_data)
+        issue = GitHubIssue.model_validate(response.json())
+
+        # Add the issue to the project board
+        await client.post(
+            f"/projects/columns/{project_id}/cards",
+            json={"content_id": issue.number, "content_type": "Issue"},
+        )
+
+        logger.info_kv(
+            "Ticket created",
+            f"Created ticket '{title}' on project board '{project_id}' in repository '{owner}/{repo}'",
+            "green",
+        )
+
+        return issue
