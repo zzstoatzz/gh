@@ -1,9 +1,13 @@
-# gh_util
+# gh-util
 
 A minimal Python library for interacting with GitHub's API, using `httpx` and `Pydantic`.
 
+- settings
+- pydantic models (wip)
+- functions to hit endpoints and return nice types
+
 ## **NOTE**
-This library is under active development and will likely change.
+This library is under development and will change.
 
 
 ## Installation
@@ -12,7 +16,7 @@ This library is under active development and will likely change.
 pip install gh_util
 ```
 
-Either set `GH_UTIL_TOKEN` or `GITHUB_TOKEN` as an env var or in a `.env` file to enable authenticated requests and increase your rate limit.
+Either set `GH_UTIL_TOKEN` or `GITHUB_TOKEN` as an env var or in a `.env` file to enable authenticated requests and increase your rate limit as a recognized `login`.
 
 ## Usage
 
