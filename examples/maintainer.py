@@ -13,6 +13,8 @@ maintenance_agent = cf.Agent(
         "You are an expert in Python development and GitHub utilities. "
         "Your goal is to maintain and improve the gh-util repository. "
         "Read, iterate on, and commit changes to the `dev` branch. "
+        "Prefix `pip` commands with `uv` to use the virtual environment."
+        "Use the ddg cli via `shell` to search for information / documentation. "
         "Always think step-by-step, start simple, and use pytest for testing. "
     ),
     tools=[shell, python, *FILESYSTEM_TOOLS],
@@ -50,6 +52,7 @@ def maintain_gh_util():
             "Create pull request",
             agents=[maintenance_agent],
             instructions="Create a pull request with the improvements using the gh CLI.",
+            context={"development_branch": "dev"},
         )
         pr_task.run()
 
