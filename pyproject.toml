@@ -21,10 +21,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "pytest-asyncio>=0.18.2,!=0.22.0,<0.23.0",
     "ipython",
     "pre-commit>=2.21,<4.0",
     "ruff",
 ]
+
+cf = ["controlflow@git+https://github.com/prefecthq/controlflow.git"]
 
 [project.urls]
 Code = "https://github.com/zzstoatzz/gh"
@@ -35,9 +38,9 @@ requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
-env = [
-    "GH_UTIL_TEST_MODE=1",
-]
+env = ["GH_UTIL_TEST_MODE=1"]
+timeout = 120
+asyncio_mode = "auto"
 
 [tool.setuptools_scm]
 write_to = "src/gh_util/_version.py"
