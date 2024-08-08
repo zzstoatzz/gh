@@ -927,3 +927,66 @@ async def create_project_ticket(
         )
 
         return issue
+
+
+async def get_prs_between_releases(
+    owner: str,
+    repo: str,
+    base: str,
+    head: str,
+) -> list[GitHubPullRequest]:
+    """
+    Get the Pull Requests between two releases.
+
+    Args:
+        owner: The owner of the repository.
+        repo: The repository name.
+        base: The base release tag (earlier release).
+        head: The head release tag (later release).
+
+    Returns:
+        list[GitHubPullRequest]: A list of Pull Requests between the two releases.
+
+    Example:
+        ```python
+        from gh_util.functions import get_prs_between_releases
+
+        prs = await get_prs_between_releases(
+            owner="PrefectHQ",
+            repo="on-release",
+            base="0.0.7",
+            head="0.0.8"
+        )
+        for pr in prs:
+            print(f"#{pr.number}: {pr.title}")
+        ```
+    """
+    async with GHClient() as client:
+        # 1. Compare the two releases
+        compare_url = f"/repos/{owner}/{repo}/compare/{base}...{head}"
+        compare_response = await client.get(compare_url)
+        compare_data = compare_response.json()
+
+        # 2. Extract PR numbers from the comparison
+        pr_numbers = set()
+        for commit in compare_data.get("commits", []):
+            message = commit.get("commit", {}).get("message", "")
+            if message.startswith("Merge pull request #"):
+                pr_number = message.split("#")[1].split(" ")[0]
+                pr_numbers.add(pr_number)
+
+        # 3. Fetch details for each PR
+        prs = []
+        for pr_number in pr_numbers:
+            pr_url = f"/repos/{owner}/{repo}/pulls/{pr_number}"
+            pr_response = await client.get(pr_url)
+            pr_data = pr_response.json()
+            prs.append(GitHubPullRequest.model_validate(pr_data))
+
+        logger.info_kv(
+            "PRs fetched",
+            f"Fetched {len(prs)} PRs between releases {base} and {head} in repository '{owner}/{repo}'",
+            "green",
+        )
+
+        return prs
