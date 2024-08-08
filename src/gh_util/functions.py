@@ -835,9 +835,9 @@ async def fetch_latest_repo_tag(
 
     Example:
         ```python
-        from gh_util.functions import fetch_latest_tag_by_pattern
+        from gh_util.functions import fetch_latest_repo_tag
 
-        latest_tag = await fetch_latest_tag_by_pattern(
+        latest_tag = await fetch_latest_repo_tag(
             owner="zzstoatzz",
             repo="gh",
             pattern="*.1.1*"
@@ -845,6 +845,13 @@ async def fetch_latest_repo_tag(
         print(f"The latest tag matching the pattern is: {latest_tag}")
         ```
     """
+    tags = await fetch_latest_n_repo_tags(owner, repo, n=1, pattern=pattern)
+    return tags[0]
+
+
+async def fetch_latest_n_repo_tags(
+    owner: str, repo: str, n: int = 10, pattern: str | None = None
+) -> list[GitHubRef]:
     async with GHClient() as client:
         params = {"per_page": 1, "order": "desc", "sort": "created"}
         if pattern:
@@ -857,7 +864,7 @@ async def fetch_latest_repo_tag(
         tags = response.json()
         if not tags:
             raise ValueError(f"No tags found matching the pattern: {pattern}")
-        return GitHubRef.model_validate(tags[-1])
+        return parse_as(list[GitHubRef], tags)[-n:]
 
 
 async def create_project_ticket(
