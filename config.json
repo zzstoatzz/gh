@@ -1,3 +1,1 @@
-{
-  "missing_dependency": "upstream_table"
-}
+{"should_fail": "missing upstream dependency"}
