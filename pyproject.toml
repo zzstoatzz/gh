@@ -22,7 +22,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "ipython",
-    "pre-commit>=2.21,<4.0",
+    "pre-commit>=2.21,<5.0",
     "ruff",
 ]
 
